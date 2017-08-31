@@ -1,0 +1,1061 @@
+#!/usr/bin/perl
+#   coding: utf-8
+
+eval 'exec /usr/bin/perl  -S $0 ${1+"$@"}'
+    if 0; # not running under some shell
+
+=head1 NAME
+
+tv_grab_fr_telerama - Grab TV listings for France.
+
+=head1 SYNOPSIS
+
+ To configure:
+   tv_grab_fr --configure [--config-file FILE]
+ To grab listings:
+   tv_grab_fr [--config-file FILE] [--output FILE] [--days N]
+        [--offset N] [--quiet] [--perdays] [--perweeks]
+        [--ch_prefix prefix] [--ch_postfix postfix]
+        [--no_cryptedcplus] [--no_cryptedpprem]
+ To show capabilities:
+   tv_grab_fr --capabilities
+ To show version:
+   tv_grab_fr --version
+ Help:
+   tv_grab_fr --help
+
+=head1 DESCRIPTION
+
+Output TV listings for several channels available in France (Hertzian,
+Cable/satellite, Canal+ Sat).  The data comes from
+guidetv-iphone.telerama.fr.  The default is to grab as many days as possible
+from the current day onwards. The program description are
+downloaded.
+
+B<--configure-more-channels> Use this option to create AUTRES CHAINES list.
+ This allow to grab listings for some channels that are not in automatically
+generated lists.
+
+B<--configure> Grab channels informations from the website and ask for
+channel type and names.
+
+B<--config-file FILE> Use FILE as config file instead of the default config
+file. This allow to have different config files for i.e. different apps.
+
+B<--gui OPTION> Use this option to enable a graphical interface to be used.
+OPTION may be 'Tk', or left blank for the best available choice.
+Additional allowed values of OPTION are 'Term' for normal terminal output
+(default) and 'TermNoProgressBar' to disable the use of Term::ProgressBar.
+
+B<--output FILE> Write to FILE rather than standard output.
+
+B<--days N> Grab N days starting from today, rather than as many as
+possible. Due to the website organization, the speed depends on
+the --days value Default value is 11.
+
+B<--offset N> Start grabbing N days from today, rather than starting
+today.  N may be negative. Due to the website organization, N cannot
+be inferior to -1.Default value is 0
+
+B<--ch_prefix S> (string): string to add at the begining of XMLTV channel id
+Default value is "C"
+
+B<--ch_postfix S> (string): string to add at the end of XMLTV channel id
+Default value is ".telerama.fr"
+
+B<--quiet> Suppress the progress messages normally written to standard
+error.
+
+B<--perdays> Actually do nothing since "per days" is already set as default
+grabbing mode. This option is kept in the event of "per weeks" set back as
+default. In this case, it could be use to activate the "per days" grabbing mode.
+
+B<--perweeks> Actually do nothing since "per days" is already forced as default
+
+B<--capabilities> Show which capabilities the grabber supports. For more
+information, see L<http://xmltv.org/wiki/xmltvcapabilities.html>
+
+B<--version> Show the version of the grabber.
+
+B<--help> Print a help message and exit.
+
+B<--delay> (integer). régle le delais maximum en 2 requete au serveur. Defaut 2
+
+B<--no_cryptedcplus> Cache les programme crypté de Canal+.
+
+B<--no_cryptedpprem> Cache les programme crypté de Paris Première.
+
+=head1 SEE ALSO
+
+L<xmltv(5)>
+
+=head1 AUTHOR
+
+Zubrick, zubrick<at>number6<dot>ch
+Modified by patrick-g  pgn<dot>ltech<at>free<dot>fr
+
+=head1 LICENSE
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+=head1 CHANGELOG
+
+1.8 Suppression de l'option --slow ne servait plus
+         Ajout des option --ch_prefix et --ch_postfix pour définir le prefix et le suffixe
+         du channel id. Par defaut "C" et ".telerama.fr" (conforme à l'existant)
+         Correction de la description du programme dans l'entête
+         Augmentation du nombre de jours récupérés par défaut (11)
+         Ajout de la licence d'utilisation (GPL v3+ comme xmltv)
+         Correction définitive (je pense) des problèmes d'encodage UTF8 (le xml généré passe xmltv:tv_validate_file)
+         Diminution du délai entre 2 captures de page (malgré les dizaine d'essais que j'ai effectués,
+         ça n'a pas posé de problème)
+         Correction de l'entête du fichier xml généré qui indiquait toujours telepoche.
+         Suppression du code mort (routines gérant le site de telepoche)
+         Suppression de la routine tidy (puisque les problème d'encodage sont résolus smile )
+         Correction de la récupération de l'image du programme (URL incorrecte), maintenant on peut afficher la petite photo
+         Les informations suivantes sont maintenant récupérées :
+        - Durée (corrigée)
+        - Présence de sous-titrage (onscreen ou teletexte)
+        - Scénariste(s)
+        - Présentateur(s)
+        - Invité(s)
+        - Compositeur(s), il faut une version de xmltv >= 5.58
+        - stereo/dolby/dolby digital/surround/VM  (problème dans le format xmltv actuel : il ne peut y
+                         avoir qu'un seul de ces choix on ne peut pas décrire une VM en dolby digital par exemple)
+        - Titre original (s'il est présent)
+        - Pays d'origine
+        - Première diffusion/Inédit
+        - Rediffusion
+        - Format (4:3 ou 16:9)
+        - Qualité de la vidéo (HD ou rien)
+        - Critique
+        - Gestion du rating CSA (Tout Public/-10/-12/-16/-18) avec URL de la signalétique quand elle existe.
+        - Nombre d'étoiles.
+1.9  Suppression de l'ancien rating
+1.10 Suppression de l'option --verytv, le serveur n'est plus accessible au public.
+          Ajout de l'option --delay
+1.11 Suppression des restes du patch de tigerlol sur les chevauchements d'horaire. Ce patch ne concernait
+          que le site de télépoche.
+1.12 Correction de --list-channel qui ne marchait plus depuis la version 1.7 au moins et --configure
+     que j'avais cassé en corrigeant les Pb d'encodage.
+1.13 Correction nom de fichier de l'icone des chaine (il manquait un point devant le gif). Merci à
+     Piratebab et Gilles74.
+     Ajout de la possibilité d'afficher la ligne de commande (voir $DEBUG_CMD)
+1.14 Inversion des positions de la saison et de l'épisode dans la description.
+1.15 Correction d'un oubli dans le traitement des numéros d'épisode, si le nombre d'épisodes
+     était absent, le numéro n'était pas récupéré.
+     Ajout du traitement du nombre de saison.
+1.16 Correction du format du star-rating.
+          Modification regexp de récupération de l'année qui ne marchait plus
+1.17 Si un fichier './logo-path.txt' existe, il est utilisé pour déterminer
+     le chemin vers les logos des chaines lorsqu'on utilise l'option --configure.
+     La version fournie est une version corrigée de lookup_tv_grab_fr_telerama.tx,
+     il pointe donc vers les logos de lyngsat. Il utilise la même syntaxe mais le
+     champ chid n'est pas utilisé. De cette façon le fichier de conf et le fichier
+     xml généré pointe directement vers les bons logos.
+1.18 Correction de quelques variables réguilère l'année et le réalisateur
+1.19 Correction d'un bug dans le cas ou un $ est mis à la fin du titre ou dans d'autre champs.
+1.20 Ajout de 2 options pour filtrer les programmes cryptés de Canal+ et Paris Première.
+1.21 Le CSA ayant supprimé de son site les pictogrammes de rating dans un format exploitable,
+     remplacement des URL par celle de Wikimedia Commons.
+     Ajout initialisation oubliée de la variable $crypted.
+     Traitement des réalisateurs multiples (comme pour les acteurs)
+     Correction détection de sous-champ "Stéréo"
+     Correction récupération du sous-champs "Durée" : il n'était plus reconnu et la
+        gestion de l'unité n'était pas faite.
+     Suppression variable $showview qui n'était plus utilisé.
+     Le format des pages récupérées de Télérama a légérement changé :
+        Ajout du sous-champ "Rediffusion :" suivi de la date de la prochaine redif. (n'est pas
+           pris en compte par XMLTV, mais pollue le sous-champ "Rediffusion" (sans les ':')
+1.22 L'api verytv utilisée n'es plus fonctionnelle, adaptation a une nouvelle api
+     Il reste des problème d'encodage à régler
+1.23 Essaie encore une fois en cas d'erreur http. après skip la chaine
+=cut
+
+
+    use XMLTV::Usage <<END
+    $0: get French television listings in XMLTV format
+    To configure AUTRES CHAINES list: $0 --configure-more-channels
+    To configure: $0 --configure [--config-file FILE]
+    To grab listings: tv_grab_fr [--config-file FILE] [--output FILE] [--days N]
+    [--offset N] [--quiet] [--perdays] [--perweeks]
+    [--ch_prefix prefix] [--ch_postfix postfix] [--delay N]
+    [--no_cryptedcplus] [--no_cryptedpprem]
+    prefix, postfix : strings, "" for null string
+    To show capabilities : $0 --capabilities
+    To show version      : $0 --version
+    To view help         : $0 --help
+END
+    ;
+
+use warnings;
+use strict;
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.22 2017/08/30 08:33:00 zubrick Exp $ ';
+#use XMLTV::Capabilities qw/baseline manualconfig cache/;
+use XMLTV::Capabilities qw/baseline manualconfig/;
+use XMLTV::Description 'France (telerama)';
+use Getopt::Long;
+use HTML::Entities; # parse entities
+use IO::File;
+use URI;
+use Date::Manip;
+use XMLTV;
+use XMLTV::Ask;
+use XMLTV::ProgressBar;
+use XMLTV::Mode;
+use XMLTV::Config_file;
+use XMLTV::DST;
+use LWP;
+use XMLTV::Get_nice;
+use XMLTV::Memoize;
+use File::Temp;
+use LWP::Simple;
+use LWP::UserAgent;
+use POSIX;
+use Encode;
+#use Encode::Detect;
+use JSON;
+#use Data::Dumper;
+use Date::Parse;
+use utf8;
+no utf8;
+binmode(STDOUT, ":utf8");
+#***************************************************************************
+# Main declarations
+#***************************************************************************
+my $LANG = "fr";
+my $VERSION   = "1.21-20170830";
+
+# FIXME: Temporary avoid XML warnings (to be investigated)
+#no warnings;
+
+# Grid id defined by the website according to channel types (needed to build the URL)
+# my %GridType = (  "ALL" => "all");
+
+# Slot of hours according to the website (needed to build the URL)
+my @offsets = (2, 3, 4, 5, 6, 7);
+# Slot of days for day per day grabbing
+# my @days = (2, 3, 4, 5, 6, 7, 8, 9);
+
+my $Delay = 2; # in seconds
+my $FailOnError = 1; # Fail on fetch error
+
+my %errors = ();
+my $last_get_time;
+
+# my $progexist;
+# my %prevprog;
+# my $prevtitle;
+# my $prevstart;
+# my $prevstop;
+
+my $channel_postfix = ".api.telerama.fr";
+my $channel_prefix = "C";
+
+# Set this to 1 of you want to print command line
+my $DEBUG_CMD = 0;
+
+#***************************************************************************
+# Global variables allocation according to options
+#***************************************************************************
+XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux');
+
+##patch: tigerlol: correction des chevauchements d'horaire
+my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,  $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path, $no_cryptedcplus, $no_cryptedpprem );
+##/patch
+
+# debug
+if ($DEBUG_CMD) { print $0." | ".join(" | ", @ARGV), "\n\n"; }
+
+$opt_per_weeks = 0;
+$opt_quiet  = 0;
+# The website is able to store at least 11 days from now
+my $default_opt_days = 11;
+$opt_output = '-'; # standard output
+GetOptions('days=i'     => \$opt_days,
+           'help'         => \$opt_help,
+           'output=s'  => \$opt_output,
+           'offset=i'  => \$opt_offset,
+           'quiet'       => \$opt_quiet,
+           'configure' => \$opt_configure,
+           'config-file=s' => \$opt_config_file,
+           'gui:s'       => \$opt_gui,
+           'list-channels' => \$opt_list_channels,
+           'perdays' => \$opt_per_days,
+           'perweeks' => \$opt_per_weeks,
+           'ch_prefix=s'  => \$channel_prefix,
+           'ch_postfix=s'  => \$channel_postfix,
+           'no_cryptedcplus' => \$no_cryptedcplus,
+           'no_cryptedpprem' => \$no_cryptedpprem,
+           ##Gestion des channels non declares dans les listes "officielles"
+           'configure-more-channels' => \$opt_morechannels,
+           'delay=i' => \$Delay
+    )
+    or usage(0);
+
+my $CHANNEL_GRID;
+my $CHANNEL_GRID_PAGE;
+my $ROOT_URL;
+
+
+my $ua = LWP::UserAgent->new;
+
+$CHANNEL_GRID = 'https://api.telerama.fr/v1/application/initialisation';
+$CHANNEL_GRID_PAGE = "https://api.telerama.fr/v1/programmes/telechargement";
+$ROOT_URL  = 'https://api.telerama.fr/';
+$ua->agent("Telerama/5893 CFNetwork/811.5.4 Darwin/16.7.0");
+
+$ua->env_proxy;
+
+
+#***************************************************************************
+# Options processing, warnings, checks and default parameters
+#***************************************************************************
+die 'Number of days must not be negative'  if (defined $opt_days && $opt_days < 0);
+die 'Cannot get more than one day before current day' if (defined $opt_offset && $opt_offset < -1);
+usage(1) if $opt_help;
+
+XMLTV::Ask::init($opt_gui);
+
+# The options can be used, but we default them if not set.
+$opt_offset = 0 if not defined $opt_offset;
+$opt_days = $default_opt_days if not defined $opt_days;
+
+# Force the per days option in all cases
+if ( $opt_per_weeks == 0 ) {
+    $opt_per_days = 1;
+}
+
+if ( (($opt_offset + $opt_days) > $default_opt_days) or ($opt_offset > $default_opt_days) ) {
+    $opt_days = $default_opt_days - $opt_offset;
+    if ($opt_days < 0) {
+        $opt_offset = 0;
+        $opt_days = $default_opt_days;
+    }
+    say <<END
+        The website does not handle more than $default_opt_days days.
+        So the grabber is now configure with --offset $opt_offset --days $opt_days
+END
+        ;
+}
+
+#***************************************************************************
+# Last init before doing real work
+#***************************************************************************
+my %results;
+my $lastdaysoffset = $opt_offset + $opt_days - 1;
+my $checkDummySlot = 0;
+my @data;
+my $chan;
+my @name_url;
+my %icon_map;
+my @genres;
+my @channelnames;
+
+# Now detects if we are in configure mode
+my $mode = XMLTV::Mode::mode('grab', # default
+                             $opt_configure => 'configure',
+                             $opt_list_channels => 'list-channels',
+                             $opt_morechannels  => 'confmorechannels' );
+
+# File that stores which channels to download.
+my $config_file = XMLTV::Config_file::filename($opt_config_file, 'tv_grab_fr_telerama', $opt_quiet);
+
+# get channel logo path in conf file
+#***********************************
+$opt_logo_path = "false";
+
+if (-e "./logo-path.txt")
+{
+    $opt_logo_path = "true";
+    open(FILE, "./logo-path.txt") or die("Unable to open file");
+    @data = <FILE>;
+    close(FILE);
+
+    foreach $chan (@data)
+    {
+        #      print STDERR "Ligne Logo : " . $chan . "\n";
+        @name_url = split('\|', $chan);
+        #      $xmltvid_map{$name_url[0]} = $name_url[1];
+        $icon_map{$name_url[0]} = $name_url[2];
+        #      print $name_url[0]."|".$name_url[2]."\n";
+    }
+}
+
+
+
+
+
+#***************************************************************************
+# Sub sections
+#***************************************************************************
+sub get_channels( );
+sub return_other_channels( );
+sub build_other_channel_filename();
+sub get_more_channel_icon( $ );
+sub process_channel_grid_page( $$$$ );
+sub debug_print( @ );
+sub get_page( $ );
+
+# Set this to 1 of you debug strings
+my $DEBUG_FR = 1;
+# Internal debug functions
+sub debug_print( @ ) {
+    if ($DEBUG_FR) { print @_; }
+}
+
+sub xmlencoding {
+    # encode for xml
+    $_[0] =~ s/</&lt;/g;
+    $_[0] =~ s/>/&gt;/g;
+    $_[0] =~ s/&/\%26/g;
+    return $_[0];
+}
+
+#debug_print( "my Mode  : " . $mode ."\n");
+#***************************************************************************
+# Configure mode
+#***************************************************************************
+if ($mode eq 'configure') {
+    XMLTV::Config_file::check_no_overwrite($config_file);
+    open(CONF, ">$config_file") or die "Cannot write to $config_file: $!";
+
+    #my $bar = new XMLTV::ProgressBar('getting channel lists', scalar grep { $_ } @gtwant) if not $opt_quiet;
+    my %channels_for;
+    my %channels = get_channels();
+    die 'No channels could be found' if not %channels;
+
+
+    my %asked;
+
+    # Ask about each channel (unless already asked).
+    my @chs = grep { not $asked{$_}++ } sort keys %channels;
+    my @names = map { $channels{$_}{name} } @chs;
+    my @qs = map { "add channel $_?" } @names;
+    my @want = ask_many_boolean(1, @qs);
+    foreach (@chs) {
+        my $w = shift @want;
+        warn("cannot read input, stopping channel questions"), last if not defined $w;
+        # Print a config line, but comment it out if channel not wanted.
+        print CONF '#' if not $w;
+        print CONF "channel $_ $channels{$_}{name};$channels{$_}{icon}\n";
+    }
+
+    close CONF or warn "cannot close $config_file: $!";
+    say("Finished configuration.");
+    exit();
+}
+
+#***************************************************************************
+# "Configure more channels" mode
+#***************************************************************************
+sub display_otherchannels_list(\%) {
+    my %chlist = %{(shift)};
+
+    say ">>>>>> Current list <<<<<<";
+    foreach my $chid (keys %chlist) {
+        say "Channel ID: ". $chid." - Name: " . $chlist{$chid}{name} .
+            " - Icon: ". $chlist{$chid}{icon};
+    }
+    say ">>>>>> List end <<<<<<";
+}
+
+if ($mode eq 'confmorechannels') {
+    # Display info message, pointing to the forum thread
+    my $input_file_notempty = 0;
+    my %morechannels = return_other_channels();
+    display_otherchannels_list(%morechannels);
+    if ( (scalar keys  %morechannels) > 0 ) {
+        $input_file_notempty= 1;
+    }
+    my $choice = "";
+    my ($chid, $chname, $chicon);
+
+    while ( !($choice eq "exit")) {
+        $choice = ask_choice( "Select command to configure OTHERCHANNELS", "add", ("add", "remove", "view list", "save&exit", "exit") );
+        my $exit = 0;
+        if ($choice eq "add" ) {
+            while ($exit == 0) {
+                $chid = ask('Enter channel ID : ');
+                $chname = ask('Enter channel name : ');
+                if ( !($chid =~ /^[0-9]*$/) ) {
+                    say ("Enter a numeric value for channel id");
+                } else {
+                    if ( $chname eq "" ) {
+                        say ("Enter a string for the name of the channel");
+                    } else {
+                        $exit = 1;
+                    }
+                }
+            }
+            say("Testing channel $chid - $chname ...");
+            my $chicon = get_more_channel_icon( $chid );
+            $morechannels{$chid} = {'name'=>$chname, 'icon'=>$chicon};
+        }
+        if ($choice eq "remove" ) {
+            display_otherchannels_list(%morechannels);
+            my $chid = ask('Enter the channel id to remove it (see list above): ');
+            if ( defined $morechannels{$chid} ) {
+                $chname = $morechannels{$chid}{name};
+                delete $morechannels{$chid};
+                say ("Channel $chname removed");
+            } else {
+                say("Channel $chid does not exist in the list");
+            }
+        }
+        if ($choice eq "view list" ) {
+            display_otherchannels_list(%morechannels);
+        }
+        if ($choice eq "save&exit") {
+            my $morechannels_file = build_other_channel_filename();
+            # Then write the file
+            if ( (scalar keys  %morechannels) > 0 ) {
+                open(CONFMORE, ">$morechannels_file") or die "Cannot write to $morechannels_file: $!";
+                foreach $chid (keys %morechannels) {
+                    if (!( $morechannels{$chid}{name} eq 'DELETED' )) {
+                        print CONFMORE "channel $chid $morechannels{$chid}{name};$morechannels{$chid}{icon}\n";
+                    }
+                }
+                close CONFMORE or warn "cannot close $morechannels_file: $!";
+                display_otherchannels_list(%morechannels);
+                say ('Channel list saved. Launch now a --configure mode to add them into the legacy config');
+            } else {
+                unlink ($morechannels_file);
+                say ('No channels to be configure, file deleted.');
+            }
+            $choice = "exit";
+        }
+    }
+    say("Finished configuration for OTHERCHANNELS.");
+    exit();
+}
+
+#***************************************************************************
+# Check mode checking and get configuration file
+#***************************************************************************
+die if $mode ne 'grab' and $mode ne 'list-channels';
+#       debug_print( "my Mode  : " . $mode ."\n");
+
+my @config_lines;
+if ($mode eq 'grab') {
+    @config_lines = XMLTV::Config_file::read_lines($config_file);
+}
+
+#***************************************************************************
+# Prepare the XMLTV writer object
+#***************************************************************************
+my %w_args;
+if (defined $opt_output) {
+    my $fh = new IO::File(">$opt_output");
+    die "cannot write to $opt_output: $!" if not defined $fh;
+    $w_args{OUTPUT} = $fh;
+}
+
+$w_args{encoding} = 'UTF-8';
+#$w_args{days} = $opt_days;
+#$w_args{offset} = $opt_offset;
+#$w_args{cutoff} = "000000";
+
+my $writer = new XMLTV::Writer(%w_args);
+$writer->start
+    ({ 'source-info-url'         => $ROOT_URL,
+           'source-data-url'     => $ROOT_URL,
+           'generator-info-name' => 'XMLTV',
+           'generator-info-url'  => 'http://mythtv-fr.org/',
+     });
+
+#***************************************************************************
+# List channels only case
+#***************************************************************************
+#       debug_print( "my Mode  : " . $mode ."\n");
+if ($mode eq 'list-channels') {
+    # Get a list of available channels, according to the grid type
+    #   my @gts = sort keys %GridType;
+    #   my @gtnames  = map { $GridType{$_} } @gts;
+    #   my @gtqs = map { "List channels for grid : $_?" } @gts;
+    #   my @gtwant = ask_many_boolean(1, @gtqs);
+
+    my %seen;
+    #   debug_print( "Entering list-channels\n");
+    #   foreach (@gts) {
+    #       debug_print( "In foreach\n");
+    #           my $gtw = shift @gtwant;
+    #           my $gtname = shift @gtnames;
+    #           if ($gtw) {
+    #                   say  "Now getting grid : $_ \n";
+    my %channels = get_channels( );
+    die 'no channels could be found' if (scalar(keys(%channels)) == 0);
+    foreach my $ch_did (sort(keys %channels)) {
+        my $ch_xid = $channel_prefix.$ch_did.$channel_postfix;
+        $writer->write_channel({ id => $ch_xid,
+                                 'display-name' => [ [ $channels{$ch_did}{name} ] ],
+                                 #                                                                               'icon' => [{src=>$ROOT_URL.$channels{$ch_did}{icon}}] })
+                                 'icon' => [{src=> $channels{$ch_did}{icon} }] })
+            unless $seen{$ch_xid}++;
+    }
+    #      }
+    #    }
+    $writer->end();
+    exit();
+}
+
+#***************************************************************************
+# Now the real grabbing work
+#***************************************************************************
+die if $mode ne 'grab';
+
+#***************************************************************************
+# Build the working list of channel name/channel id
+#***************************************************************************
+my (%channels, $chicon, $chid, $chname);
+my $line_num = 1;
+foreach (@config_lines) {
+    ++ $line_num;
+    next if not defined;
+
+    # Here we store the Channel name with the ID in the config file, as the XMLTV id = Website ID
+    if (/^channel:?\s+(\S+)\s+([^\#]+);([^\#]+)/) {
+        $chid = $1;
+        $chname = $2;
+        $chicon = $3;
+        $chname =~ s/\s*$//;
+        $channels{$line_num} = {'chid'=>$chid, 'name'=>$chname, 'icon'=>$chicon};
+    } else {
+        warn "$config_file:$line_num: bad line $_\n";
+    }
+}
+
+#***************************************************************************
+# Now process the days by getting the main grids.
+#***************************************************************************
+my @to_get;
+warn "No working channels configured, so no listings\n" if not %channels;
+my $script_duration = time();
+
+# The website stores channel information by hour area for a whole week !
+my $ind;
+foreach $ind (sort { $a <=> $b } keys %channels) {
+    my $chid = $channels{$ind}{chid};
+    my $url;
+    my $i;
+    my $dayoff;
+    $writer->write_channel({ id => $channel_prefix.$chid.$channel_postfix, 'display-name' => [[$channels{$ind}{name}]], 'icon' => [{src=>$channels{$ind}{icon}}]});
+    if ( $opt_per_days ) {
+        for ($i=$opt_offset; $i < $opt_offset+$opt_days; $i++ ) {
+            #debug_print( "i: $i\n");
+            $dayoff = strftime("%Y-%m-%d", gmtime(time() + 3600 * 24 * $i));
+            #debug_print( "dayoff  : " . gmtime(time() + 3600 * 24 * $i) ."\n");
+
+            $url = $CHANNEL_GRID_PAGE."?dates=".$dayoff."&id_chaines=".$chid."&nb_par_page=10000";
+            push @to_get, [ $url, $chid, $i ];
+        }
+    } else {
+        foreach (@offsets) {
+            #$url = $GRID_BY_CHANNEL . "$chid&h=$_";
+            push @to_get, [ $url, $chid, $_ ];
+        }
+    }
+}
+
+
+my $bar = new XMLTV::ProgressBar('getting listings', scalar @to_get)  if not $opt_quiet;
+Date_Init('SetDate=now,UTC');
+
+foreach (@to_get) {
+    my ($url, $chid, $slot) = @$_;
+    process_channel_grid_page($writer, $chid, $url, $slot);
+    update $bar if not $opt_quiet;
+}
+
+$writer->end();
+$bar->finish() if not $opt_quiet;
+
+# Print the duration
+$script_duration = time() - $script_duration;
+print STDERR "Grabber process finished in " . $script_duration . " seconds.\n" if not $opt_quiet;
+
+#***************************************************************************
+# Specific functions for grabbing information
+#***************************************************************************
+# Build the filename used to stored channels configured manually
+sub build_other_channel_filename() {
+    # Get the file name/path for OTHERCHANNELS
+    my $home = $ENV{HOME};
+    $home = '.' if not defined $home;
+    my $conf_dir = "$home/.xmltv";
+    (-d $conf_dir) or mkdir($conf_dir, 0777)
+        or die "cannot mkdir $conf_dir: $!";
+    return "$conf_dir/OTHERCHANNELS";
+}
+
+# Return the tables of the channels built manally
+sub return_other_channels( ) {
+
+    my $morechannels_file = build_other_channel_filename();
+
+    my @morechannels_lines;
+    if (-e $morechannels_file && ((-s $morechannels_file)>0) ) {
+        @morechannels_lines = XMLTV::Config_file::read_lines($morechannels_file);
+    }
+    my %morechannels;
+    my ($chid, $chname, $chicon);
+    my $line_num = 0;
+
+    # Build the table and display
+    foreach (@morechannels_lines) {
+        next if not defined;
+
+        # Here we store the Channel name with the ID in the config file, as the XMLTV id = Website ID
+        if (/^channel:?\s+(\S+)\s+([^\#]+);([^\#]+)/) {
+            $chid = $1;
+            $chname = $2;
+            $chicon = $3;
+            $chname =~ s/\s*$//;
+            $morechannels{$chid} = {'name'=>$chname, 'icon'=>$chicon};
+        }
+        $line_num++;
+    }
+    return %morechannels;
+}
+
+# Return the link to the icon. Parameter : channel id
+sub get_more_channel_icon( $ ) {
+    my $chid = shift;
+    my $today = strftime("%Y-%m-%d", localtime());
+    my $url;# = $CHECK_CHANNEL_URL.$chid.'/telepoche/soiree/'.$today;
+    print $chid;
+    # Get the current page
+    my $t = get_nice_tree($url);
+
+    debug_print( "URL  : " . $url ."\n");
+    # Set by default an EMPTY logo
+    my $chicon = "EMPTY";
+
+    foreach my $cellTree ( $t->look_down( "_tag", "img") ) {
+        my $chiconsrc = $cellTree->attr('src');
+        if ( $chiconsrc =~ /\/medias\/chaines\/(.*)/ ) {
+            $chicon = "http://telepoche.guidetele.com/medias/chaines/".$1;
+        }
+    }
+    $t->delete(); undef $t;
+    return $chicon;
+}
+
+#Get the channel from a grid id, including OTHERCHANNELS mode
+sub get_channels( ) {
+    my %channels;
+
+    # Get the current page
+    my $page = get_page($CHANNEL_GRID);
+
+    #debug_print( "URL  : " . $CHANNEL_GRID ."\n");
+    #   debug_print($page);
+    #my $length = Encode::from_to($page, "windows-1252", "UTF8") ;
+    #   debug_print "\nLength : " . $length . "\n";
+    my $json_hash = decode_json($page);
+    my $chicon = "";
+    my @lines = @{ $json_hash->{'donnees'}{'chaines'} };
+    foreach my $line ( @lines ) {
+        #debug_print "Found line : " . $line . "\n";
+        #   print Dumper($line);
+        $chid = $line->{'id'};
+        $chname = $line->{'nom'};
+        if ( $chname eq "" ) {
+                $chname = "???"
+        }
+        #debug_print "Found channel : " . $chid . " - " . $chname . "\n";
+        $channelnames[$chid] = $chname;
+
+        $chicon = $line->{'logo'};
+
+        $channels{$chid} = {'name' =>  $chname, 'icon' => $chicon };
+        #      print "icon : ".$channels{$chid}{icon}." \n";
+    }
+
+    my @mygenres = @{ $json_hash->{'donnees'}{'genres'} };
+    foreach my $genre ( @mygenres ) {
+        $genres[$genre->{'id'}] = $genre->{'libelle'};
+    }
+
+    undef $page;
+    return %channels;
+}
+
+
+sub process_channel_grid_page( $$$$ ) {
+    my ($writer, $chid, $url, $slot) = @_;
+
+    if (!@genres) {
+        get_channels();
+    }
+
+    my $page = get_page($url);
+    $page =~ s/\u0000//g;
+    #debug_print("Getting URL : ".$url."\n");
+    Encode::from_to($page, "windows-1252", "UTF8");
+
+    my $json_hash;
+    eval {
+        $json_hash = JSON->new->utf8(0)->decode($page);
+    } or do {
+        $json_hash->{'donnees'} = [];
+    };
+
+    #print "Getting URL : ".$url."\n";
+    my @lines = @{ $json_hash->{'donnees'} };
+
+    foreach my $line ( @lines ) {
+        # debug_print "Found line : " . $line . "\n";
+        # print Dumper($line);
+
+        $chid = $line->{'id_chaine'};
+
+        my $startdate = $line->{'horaire'}{'debut'};
+        my $enddate = $line->{'horaire'}{'fin'};
+        my $title = $line->{'titre'};
+        my $description = "";
+        $description = $line->{'resume'} if ($line->{'resume'}) ;
+        my $genre = $line->{'id_genre'} ? $line->{'id_genre'} : 0;
+        my $genretext = "";
+        $genretext = $genres[$genre] if ($genre);
+        my $critic = $line->{'critique'};
+        my $stars = $line->{'note_telerama'};
+        my $chname = $channelnames[$chid];
+
+
+        my $imgurl= $line->{'vignette'}{'grande'};
+
+
+        $startdate =~ s/://g;
+        $startdate =~ s/\$//g;
+        $startdate =~ s/\ //g;
+        $startdate =~ s/-//g;
+        $enddate =~ s/://g;
+        $enddate =~ s/\$//g;
+        $enddate =~ s/\ //g;
+        $enddate =~ s/-//g;
+
+        my $start = $startdate;
+        my $stop = $enddate;
+
+        #debug_print($start.">".$stop."\n");
+
+        if ( $stop < $start ) {
+            $stop  = &UnixDate(&DateCalc($stop, "+1 day"), "%Y%m%d%H%M%S");
+            die 'could not add one day to stop time' if not $stop;
+            debug_print("One day added to end of last show.\n");
+        }
+
+        $start = utc_offset( $start, "+0100");
+        $stop  = utc_offset( $stop , "+0100");
+        my %prog = (channel  => $channel_prefix.$chid.$channel_postfix,
+                    title       => [ [ $line->{'titre'} ] ],                       # lang unknown
+                    start       => $start,
+                    stop         => $stop
+            );
+        #debug_print($start.">".$stop."\n");
+        #####
+
+        my $crypted = 0;
+        if ( $no_cryptedcplus && $channelnames[$chid] =~ m/Canal+/ ) {
+            $crypted = 1;
+        }
+        if ( $no_cryptedpprem && $channelnames[$chid] =~ m/Paris Première/ ) {
+            $crypted = 1;
+        }
+        ####
+        my $subgenre = $line->{'genre_specifique'};
+        my $episode = $line->{'serie'}{'numero_episode'};
+        my $season = $line->{'serie'}{'saison'};
+        my $episode_text = "Episode:".$episode if ($episode);
+        my $season_text = "Saison:".$season if ($season);
+        my $epstring;
+        my $rating2;
+        if ($line->{'CSA'} && $line->{'CSA'} eq "TP") {
+            $rating2 = 1;
+        }
+        $prog{length} = str2time($line->{'horaire'}{'fin'}) - str2time($line->{'horaire'}{'debut'});
+
+        $prog{'sub-title'} = [ [ $line->{'soustitre'} ] ] if ($line->{'soustitre'});
+
+        my @cast = @{ $line->{'intervenants'} } if ($line->{'intervenants'});
+        foreach my $people (@cast) {
+            my $ctype = $people->{'libelle'};
+            my $cname = $people->{'prenom'}." ".$people->{'nom'};
+            if ($ctype =~ m/Acteur/ ) {
+              push @{$prog{credits}{actor}}, $cname;
+            } elsif ($ctype =~ m/R.+alisateur/) {
+              push @{$prog{credits}{director}}, $cname;
+            } elsif ($ctype =~ m/Pr.+sentateur/) {
+                push @{$prog{credits}{presenter}}, $cname;
+            } elsif ($ctype =~ m/Musique/) {
+                push @{$prog{credits}{composer}}, $cname;
+            } elsif ($ctype =~ m/Cr.+ateur/ || $ctype =~ m/Auteur/ || $ctype =~ m/Sc.+nariste/) {
+                push @{$prog{credits}{writer}}, $cname;
+            } else {
+                push @{$prog{credits}{guest}}, $cname;
+            }
+        }
+        $prog{'date'} = $line->{'annee_realisation'} if ($line->{'annee_realisation'});
+        $prog{country} = [[$line->{'libelle_nationalite'}]] if ($line->{'libelle_nationalite'});
+        if ($line->{'flags'}{'est_ar16x9'} eq 'true') {
+            $prog{video}{aspect} = "16:9";
+        } elsif ($line->{'flags'}{'est_ar4x3'} eq 'true') {
+            $prog{video}{aspect} = "4:3";
+        }
+        $prog{'audio'}{stereo} = ["bilingual"] if ($line->{'flags'}{'est_vm'} eq 'true');
+        $prog{title_orig} = $line->{'titre_original'} if ($line->{'titre_original'});
+
+        $crypted = 0 if ($line->{'flags'}{'est_clair'} eq 'true');
+        $prog{subtitles} = [ { type => 'onscreen', language => ['fr'] } ] if ($line->{'flags'}{'est_vost'} eq 'true');
+        $prog{video}{quality} = "HDTV" if ($line->{'flags'}{'est_hd'} eq 'true');
+        $prog{premiere} = [] if ($line->{'flags'}{'est_inedit'} eq 'true');
+        $prog{'previously-shown'} = {} if ($line->{'flags'}{'est_redif'} eq 'true');
+        if ($line->{'flags'}{'est_stereo'} eq 'true') {
+            $prog{'audio'}{stereo} = "stereo";
+        } elsif ($line->{'flags'}{'est_dolby'} eq 'true') {
+            $prog{'audio'}{stereo} = "dolby";
+        }
+        $prog{showview} = $line->{'showview'};
+
+        # skip crypted shows for Canal+ or Paris Premiere
+        if ( ($chname =~ m/Canal+/) && ($crypted == 1) ) {
+            next;
+        }
+        if ( ($chname =~ m/Paris Première/) && ($crypted == 1) ) {
+            next;
+        }
+
+
+        if($episode) {
+            $description = $episode_text." - ".$description;
+        }
+        if($season) {
+            $description = $season_text." - ".$description;
+        }
+
+        $epstring = "";
+        if($episode || $season) {
+            if ($season) {
+                if($season =~ /(\d+)\/(\d+)/) {
+                    $epstring .= ($1-1)."/".$2;
+                } else {
+                    if($season =~ /(\d+)/) {
+                        $epstring .= ($1-1);
+                    }
+                }
+            }
+            $epstring .= ".";
+
+            if ($episode) {
+                if($episode =~ /(\d+)\/(\d+)/) {
+                    $epstring .= ($1-1)."/".$2;
+                } else {
+                    if($episode =~ /(\d+)/) {
+                        $epstring .= ($1-1);
+                    }
+                }
+            }
+            $epstring .= ".";
+            push @{$prog{'episode-num'}}, [$epstring,"xmltv_ns"];
+        }
+
+        if ($line->{'vignette'}{'grande'}) {
+            push @{$prog{icon}}, {src => $line->{'vignette'}{'grande'}};
+        }
+
+        if (defined $subgenre && $genre > 0) {
+            $prog{category} = [ [ xmlencoding(lc($genretext)), $LANG ], [ xmlencoding(lc($subgenre)), $LANG ] ];
+        } elsif (defined $subgenre) {
+            $prog{category} = [ [ xmlencoding(lc($subgenre)), $LANG ] ];
+        } else {
+            $prog{category} = [ [ xmlencoding(lc($genretext)), $LANG ] ];
+        }
+
+
+        if ( $description ne "" ) {
+            if($critic) {
+                $description = $description." --  Critique : ".$critic;
+            }
+            $description =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F//d;
+            push @{$prog{desc}}, [$description, $LANG ];
+        }
+
+
+
+        if ($rating2) {
+            push @{$prog{rating}}, [ "Tout public", "CSA", [] ];
+        }
+
+        # étoiles
+        $prog{'star-rating'} = [$stars."/5"] if ($stars);
+
+        #debug_print($title." - ".$startdate." - ".$enddate."\n");
+        #debug_print("description  : ".$description."\n");
+        #debug_print("genre        : ".$genretext."\n");
+
+        $writer->write_programme(\%prog);
+
+    }
+    undef $page;
+}
+
+# use an integrated sub to set a specific user agent
+sub get_page( $ ) {
+    my $url = shift;
+
+    if (defined $last_get_time) {
+        # A page has already been retrieved recently.  See if we need
+        # to sleep for a while before getting the next page - being
+        # nice to the server.
+
+        my $next_get_time = $last_get_time + (rand $Delay);
+        my $sleep_time = $next_get_time - time();
+        sleep $sleep_time if $sleep_time > 0;
+    }
+
+    my $r = $ua->get($url);
+
+    # Then start the delay from this time on the next fetch - so we
+    # make the gap _between_ requests rather than from the start of
+    # one request to the start of the next.  This punishes modem users
+    # whose individual requests take longer, but it also punishes
+    # downloads that take a long time for other reasons (large file,
+    # slow server) so it's about right.
+
+    $last_get_time = time();
+
+    if ($r->is_error) {
+        # At the moment download failures seem rare, so the script dies if
+        # any page cannot be fetched.  We could later change this routine
+        # to return undef on failure.  But dying here makes sure that a
+        # failed page fetch doesn't get stored in XMLTV::Memoize's cache.
+        #
+        #die "could not fetch $url, error: " . $r->status_line . ", aborting\n" if $FailOnError;
+        $errors{$url} = $r->status_line;
+
+        sleep 3;
+
+        my $r = $ua->get($url);
+        if ($r->is_error) {
+            return undef;
+        } else {
+            return $r->content;
+        }
+    } else {
+        print STDERR "Récupération de ".$url."\n";
+        return $r->content;
+    }
+
+}
