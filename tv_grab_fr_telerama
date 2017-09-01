@@ -990,8 +990,8 @@ sub process_channel_grid_page( $$$$ ) {
             push @{$prog{'episode-num'}}, [$epstring,"xmltv_ns"];
         }
 
-        if ($line->{'vignette'}{'grande'}) {
-            push @{$prog{icon}}, {src => $line->{'vignette'}{'grande'}};
+        if ($line->{'vignettes'}{'grande'}) {
+            push @{$prog{icon}}, {src => $line->{'vignettes'}{'grande'}};
         }
 
 
