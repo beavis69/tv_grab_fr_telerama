@@ -808,11 +808,11 @@ sub get_page_json( $ ) {
     $page  =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F//d;
 
     my $json_hash;
-    #eval {
+    eval {
         $json_hash = JSON->new->utf8(1)->decode($page);
-    #} or do {
-    #    $json_hash->{'donnees'} = [];
-    #};
+    } or do {
+        $json_hash->{'donnees'} = [];
+    };
     undef $page;
 
     return $json_hash;
@@ -828,8 +828,7 @@ sub process_channel_grid_page( $$$$ ) {
     my $json_hash = get_page_json( $url );
     if (!$json_hash->{'status'} || $json_hash->{'status'} != 200) {
         print STDERR "Status différent de 200, essai de nouveau";
-        my $page = get_page($url);
-        print STDERR $page;
+        $json_hash = get_page_json( $url );
     }
 
     #print "Getting URL : ".$url."\n";
