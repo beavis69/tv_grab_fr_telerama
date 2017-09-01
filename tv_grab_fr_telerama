@@ -142,31 +142,44 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
         - Critique
         - Gestion du rating CSA (Tout Public/-10/-12/-16/-18) avec URL de la signalétique quand elle existe.
         - Nombre d'étoiles.
+
 1.9  Suppression de l'ancien rating
+
 1.10 Suppression de l'option --verytv, le serveur n'est plus accessible au public.
           Ajout de l'option --delay
+
 1.11 Suppression des restes du patch de tigerlol sur les chevauchements d'horaire. Ce patch ne concernait
           que le site de télépoche.
+
 1.12 Correction de --list-channel qui ne marchait plus depuis la version 1.7 au moins et --configure
      que j'avais cassé en corrigeant les Pb d'encodage.
+
 1.13 Correction nom de fichier de l'icone des chaine (il manquait un point devant le gif). Merci à
      Piratebab et Gilles74.
      Ajout de la possibilité d'afficher la ligne de commande (voir $DEBUG_CMD)
+
 1.14 Inversion des positions de la saison et de l'épisode dans la description.
+
 1.15 Correction d'un oubli dans le traitement des numéros d'épisode, si le nombre d'épisodes
      était absent, le numéro n'était pas récupéré.
      Ajout du traitement du nombre de saison.
+
 1.16 Correction du format du star-rating.
           Modification regexp de récupération de l'année qui ne marchait plus
+
 1.17 Si un fichier './logo-path.txt' existe, il est utilisé pour déterminer
      le chemin vers les logos des chaines lorsqu'on utilise l'option --configure.
      La version fournie est une version corrigée de lookup_tv_grab_fr_telerama.tx,
      il pointe donc vers les logos de lyngsat. Il utilise la même syntaxe mais le
      champ chid n'est pas utilisé. De cette façon le fichier de conf et le fichier
      xml généré pointe directement vers les bons logos.
+
 1.18 Correction de quelques variables réguilère l'année et le réalisateur
+
 1.19 Correction d'un bug dans le cas ou un $ est mis à la fin du titre ou dans d'autre champs.
+
 1.20 Ajout de 2 options pour filtrer les programmes cryptés de Canal+ et Paris Première.
+
 1.21 Le CSA ayant supprimé de son site les pictogrammes de rating dans un format exploitable,
      remplacement des URL par celle de Wikimedia Commons.
      Ajout initialisation oubliée de la variable $crypted.
@@ -178,10 +191,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
      Le format des pages récupérées de Télérama a légérement changé :
         Ajout du sous-champ "Rediffusion :" suivi de la date de la prochaine redif. (n'est pas
            pris en compte par XMLTV, mais pollue le sous-champ "Rediffusion" (sans les ':')
+
 1.22 L'api verytv utilisée n'es plus fonctionnelle, adaptation a une nouvelle api
      Il reste des problème d'encodage à régler
+
 1.23 Essaie encore une fois en cas d'erreur http. après skip la chaine
+
 1.24 Corrections de bug au décodage du json
+
 1.25 Bug fixes
 =cut
 
