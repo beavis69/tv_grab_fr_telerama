@@ -202,7 +202,7 @@ END
 
 use warnings;
 use strict;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.24 2017/08/31 22:33:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.24 2017/09/01 06:33:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -235,7 +235,7 @@ binmode(STDOUT, ":utf8");
 # Main declarations
 #***************************************************************************
 my $LANG = "fr";
-my $VERSION   = "1.24-20170831";
+my $VERSION   = "1.24-20170901";
 
 # FIXME: Temporary avoid XML warnings (to be investigated)
 #no warnings;
@@ -856,32 +856,15 @@ sub process_channel_grid_page( $$$$ ) {
         my $imgurl= $line->{'vignette'}{'grande'};
 
 
-        $startdate =~ s/://g;
-        $startdate =~ s/\$//g;
-        $startdate =~ s/\ //g;
-        $startdate =~ s/-//g;
-        $enddate =~ s/://g;
-        $enddate =~ s/\$//g;
-        $enddate =~ s/\ //g;
-        $enddate =~ s/-//g;
+        $startdate =~ tr/:\$\ -//d;
+        $enddate =~ tr/:\$\ -//d;
 
-        my $start = $startdate;
-        my $stop = $enddate;
-
-        #debug_print($start.">".$stop."\n");
-
-        if ( $stop < $start ) {
-            $stop  = &UnixDate(&DateCalc($stop, "+1 day"), "%Y%m%d%H%M%S");
-            die 'could not add one day to stop time' if not $stop;
-            debug_print("One day added to end of last show.\n");
-        }
-
-        $start = utc_offset( $start, "+0100");
-        $stop  = utc_offset( $stop , "+0100");
+        $startdate = utc_offset( $startdate, "+0100");
+        $enddate  = utc_offset( $enddate , "+0100");
         my %prog = (channel  => $channel_prefix.$chid.$channel_postfix,
                     title       => [ [ $line->{'titre'} ] ],                       # lang unknown
-                    start       => $start,
-                    stop         => $stop
+                    start       => $startdate,
+                    stop         => $enddate
             );
         #debug_print($start.">".$stop."\n");
         #####
