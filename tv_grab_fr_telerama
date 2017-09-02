@@ -202,6 +202,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 1.25 Bug fixes
 
 1.26 Encodage utf8 correcte et correction d'un bug pour le flag stereo
+
+1.27 Correction de certains champs
 =cut
 
 
@@ -222,7 +224,7 @@ END
 
 use warnings;
 use strict;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.26 2017/09/02 14:33:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.27 2017/09/02 20:33:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -253,7 +255,6 @@ use Date::Parse;
 # Main declarations
 #***************************************************************************
 my $LANG = "fr";
-my $VERSION   = "1.26-20170902";
 
 # FIXME: Temporary avoid XML warnings (to be investigated)
 #no warnings;
@@ -862,8 +863,19 @@ sub process_channel_grid_page( $$$$ ) {
         my $genre = $line->{'id_genre'} ? $line->{'id_genre'} : 0;
         my $genretext = "";
         $genretext = $genres[$genre] if ($genre);
-        my $critic = $line->{'notule'};
-        $critic = $line->{'critique'} if ($line->{'critique'} ne '' && $line->{'notule'} eq '');
+        my $critic = "";
+
+        # debug_print("possede_critique : ".$line->{'possede_critique'}."\n");
+        # debug_print("possede_notule : ".$line->{'possede_notule'}."\n");
+
+        if ($line->{'possede_critique'} == 1) {
+            $critic = $line->{'critique'};
+            # debug_print("critique : ".$critic."\n");
+        } elsif ($line->{'possede_notule'} == 1) {
+            $critic = $line->{'notule'};
+            # debug_print("notule : ".$critic."\n");
+        }
+
         my $stars = $line->{'note_telerama'};
         my $chname = $channelnames[$chid];
 
@@ -910,15 +922,16 @@ sub process_channel_grid_page( $$$$ ) {
         foreach my $people (@cast) {
             my $ctype = $people->{'libelle'};
             my $cname = $people->{'prenom'}." ".$people->{'nom'};
+            $cname = $cname." (".$people->{'role'}.")" if ($people->{'role'});
             if ($ctype =~ m/Acteur/ || $ctype =~ m/Interpr.+te/ ) {
               push @{$prog{credits}{actor}}, $cname;
-            } elsif ($ctype =~ m/R.+alisateur/) {
+            } elsif ($ctype =~ m/R.+alisateur// || $ctype =~ m/Metteur en Sc.+ne/) {
               push @{$prog{credits}{director}}, $cname;
-            } elsif ($ctype =~ m/Pr.+sentateur/) {
+            } elsif ($ctype =~ m/Pr.+sentateur/ || $ctype =~ m/pr.+sentateur/) {
                 push @{$prog{credits}{presenter}}, $cname;
             } elsif ($ctype =~ m/Musique/) {
                 push @{$prog{credits}{composer}}, $cname;
-            } elsif ($ctype =~ m/Cr.+ateur/ || $ctype =~ m/Auteur/ || $ctype =~ m/Sc.+nariste/) {
+            } elsif ($ctype =~ m/Cr.+ateur/ || $ctype =~ m/Auteur/ || $ctype =~ m/Sc.+nariste/ || $ctype =~ m/Sc.+nario/ || $ctype =~ m/Dialogue/) {
                 push @{$prog{credits}{writer}}, $cname;
             } else {
                 push @{$prog{credits}{guest}}, $cname;
