@@ -925,7 +925,7 @@ sub process_channel_grid_page( $$$$ ) {
             $cname = $cname." (".$people->{'role'}.")" if ($people->{'role'});
             if ($ctype =~ m/Acteur/ || $ctype =~ m/Interpr.+te/ ) {
               push @{$prog{credits}{actor}}, $cname;
-            } elsif ($ctype =~ m/R.+alisateur// || $ctype =~ m/Metteur en Sc.+ne/) {
+            } elsif ($ctype =~ m/R.+alisateur/ || $ctype =~ m/Metteur en Sc.+ne/) {
               push @{$prog{credits}{director}}, $cname;
             } elsif ($ctype =~ m/Pr.+sentateur/ || $ctype =~ m/pr.+sentateur/) {
                 push @{$prog{credits}{presenter}}, $cname;
