@@ -862,7 +862,7 @@ sub process_channel_grid_page( $$$$ ) {
         my $genre = $line->{'id_genre'} ? $line->{'id_genre'} : 0;
         my $genretext = "";
         $genretext = $genres[$genre] if ($genre);
-        my $critic = $line->{'critique'};
+        my $critic = $line->{'notule'};
         my $stars = $line->{'note_telerama'};
         my $chname = $channelnames[$chid];
 
