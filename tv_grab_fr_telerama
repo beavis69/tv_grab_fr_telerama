@@ -248,9 +248,7 @@ use Encode;
 use JSON;
 #use Data::Dumper;
 use Date::Parse;
-use utf8;
-no utf8;
-binmode(STDOUT, ":utf8");
+
 #***************************************************************************
 # Main declarations
 #***************************************************************************
@@ -582,7 +580,6 @@ if (defined $opt_output) {
     $w_args{OUTPUT} = $fh;
 }
 
-$w_args{encoding} = 'utf-8';
 $w_args{ENCODING} = 'utf-8';
 #$w_args{days} = $opt_days;
 #$w_args{offset} = $opt_offset;
@@ -782,8 +779,6 @@ sub get_channels( ) {
 
     #debug_print( "URL  : " . $CHANNEL_GRID ."\n");
     #   debug_print($page);
-    #my $length = Encode::from_to($page, "windows-1252", "UTF8") ;
-    #   debug_print "\nLength : " . $length . "\n";
     my $json_hash = decode_json($page);
     my $chicon = "";
     my @lines = @{ $json_hash->{'donnees'}{'chaines'} };
@@ -818,14 +813,13 @@ sub get_page_json( $ ) {
 
     my $url = shift;
     my $page = get_page($url);
-    $page =~ s/\\u0000//g;
-    $page =~ s/\\u00ad//g;
+    #$page =~ s/\\u0000//g;
+    #$page =~ s/\\u00ad//g;
     #$page =~ s/\\u00bb//g;
 
 
     #debug_print("Getting URL : ".$url."\n");
-    Encode::from_to($page, "windows-1252", "UTF8");
-    $page  =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F//d;
+    #$page  =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F//d;
 
     my $json_hash;
     eval {
