@@ -200,6 +200,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 1.24 Corrections de bug au décodage du json
 
 1.25 Bug fixes
+
+1.26 Encodage utf8 correcte et correction d'un bug pour le flag stereo
 =cut
 
 
@@ -220,7 +222,7 @@ END
 
 use warnings;
 use strict;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.25 2017/09/01 07:33:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.26 2017/09/02 14:33:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -253,7 +255,7 @@ binmode(STDOUT, ":utf8");
 # Main declarations
 #***************************************************************************
 my $LANG = "fr";
-my $VERSION   = "1.25-20170901";
+my $VERSION   = "1.26-20170902";
 
 # FIXME: Temporary avoid XML warnings (to be investigated)
 #no warnings;
@@ -581,6 +583,7 @@ if (defined $opt_output) {
 }
 
 $w_args{encoding} = 'utf-8';
+$w_args{ENCODING} = 'utf-8';
 #$w_args{days} = $opt_days;
 #$w_args{offset} = $opt_offset;
 #$w_args{cutoff} = "000000";
@@ -933,7 +936,7 @@ sub process_channel_grid_page( $$$$ ) {
         } elsif ($line->{'flags'}{'est_ar4x3'} eq 'true') {
             $prog{video}{aspect} = "4:3";
         }
-        $prog{'audio'}{stereo} = ["bilingual"] if ($line->{'flags'}{'est_vm'} eq 'true');
+        $prog{'audio'}{stereo} = "bilingual" if ($line->{'flags'}{'est_vm'} eq 'true');
         #$prog{title_orig} = $line->{'titre_original'} if ($line->{'titre_original'});
 
         $crypted = 0 if ($line->{'flags'}{'est_clair'} eq 'true');
