@@ -863,6 +863,7 @@ sub process_channel_grid_page( $$$$ ) {
         my $genretext = "";
         $genretext = $genres[$genre] if ($genre);
         my $critic = $line->{'notule'};
+        $critic = $line->{'critique'} if ($line->{'critique'} ne '' && $line->{'notule'} eq '');
         my $stars = $line->{'note_telerama'};
         my $chname = $channelnames[$chid];
 
@@ -909,7 +910,7 @@ sub process_channel_grid_page( $$$$ ) {
         foreach my $people (@cast) {
             my $ctype = $people->{'libelle'};
             my $cname = $people->{'prenom'}." ".$people->{'nom'};
-            if ($ctype =~ m/Acteur/ ) {
+            if ($ctype =~ m/Acteur/ || $ctype =~ m/Interpr.+te/ ) {
               push @{$prog{credits}{actor}}, $cname;
             } elsif ($ctype =~ m/R.+alisateur/) {
               push @{$prog{credits}{director}}, $cname;
@@ -1001,7 +1002,7 @@ sub process_channel_grid_page( $$$$ ) {
 
         if ( $description ne "" ) {
             if($critic) {
-                $description = $description." --  Critique : ".$critic;
+                $description = $description." - Critique : ".$critic;
             }
             $description =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F//d;
             push @{$prog{desc}}, [$description, $LANG ];
