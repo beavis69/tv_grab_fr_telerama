@@ -82,9 +82,9 @@ B<--help> Print a help message and exit.
 
 B<--delay I> Règle le delai maximum I en secondes entre 2 requetes au serveur. Defaut 2
 
-B<--no_cryptedcplus> Cache les programme crypté de Canal+.
+B<--no_cryptedcplus> Cache les programmes crypté de Canal+.
 
-B<--no_cryptedpprem> Cache les programme crypté de Paris Première.
+B<--no_cryptedpprem> Cache les programmes crypté de Paris Première.
 
 =head1 SEE ALSO
 
