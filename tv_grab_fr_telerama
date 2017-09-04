@@ -28,7 +28,8 @@ tv_grab_fr_telerama - Grab TV listings for France.
 
 Output TV listings for several channels available in France (Hertzian,
 Cable/satellite, Canal+ Sat).  The data comes from
-guidetv-iphone.telerama.fr.  The default is to grab as many days as possible
+the api for the iphone app of Telerama
+The default is to grab as many days as possible
 from the current day onwards. The program description are
 downloaded.
 
@@ -79,7 +80,7 @@ B<--version> Show the version of the grabber.
 
 B<--help> Print a help message and exit.
 
-B<--delay> (integer). régle le delais maximum en 2 requete au serveur. Defaut 2
+B<--delay> (integer). règle le delai maximum entre 2 requete au serveur. Defaut 2
 
 B<--no_cryptedcplus> Cache les programme crypté de Canal+.
 
