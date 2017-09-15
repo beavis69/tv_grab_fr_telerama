@@ -1,8 +1,6 @@
 # tv_grab_fr_telerama
 XMLTV Grabber using telerama data
 
-<b>This software doesn't work anymore. It is kept here only as reference</b>
-
 ## Nouvelle API telerama
 <b>Depuis la version 1.22</b>, une nouvelle api de telerama est utilisée. 
 
