@@ -962,22 +962,22 @@ sub process_channel_grid_page( $$$$ ) {
         }
         $prog{'date'} = $line->{'annee_realisation'} if ($line->{'annee_realisation'});
         $prog{country} = [[$line->{'libelle_nationalite'}]] if ($line->{'libelle_nationalite'});
-        if ($line->{'flags'}{'est_ar16x9'} eq 'true') {
+        if ($line->{'flags'}{'est_ar16x9'}) {
             $prog{video}{aspect} = "16:9";
-        } elsif ($line->{'flags'}{'est_ar4x3'} eq 'true') {
+        } elsif ($line->{'flags'}{'est_ar4x3'}) {
             $prog{video}{aspect} = "4:3";
         }
-        $prog{'audio'}{stereo} = "bilingual" if ($line->{'flags'}{'est_vm'} eq 'true');
+        $prog{'audio'}{stereo} = "bilingual" if ($line->{'flags'}{'est_vm'});
         #$prog{title_orig} = $line->{'titre_original'} if ($line->{'titre_original'});
 
-        $crypted = 0 if ($line->{'flags'}{'est_clair'} eq 'true');
-        $prog{subtitles} = [ { type => 'onscreen', language => ['fr'] } ] if ($line->{'flags'}{'est_vost'} eq 'true');
-        $prog{video}{quality} = "HDTV" if ($line->{'flags'}{'est_hd'} eq 'true');
-        $prog{premiere} = [] if ($line->{'flags'}{'est_inedit'} eq 'true');
-        $prog{'previously-shown'} = {} if ($line->{'flags'}{'est_redif'} eq 'true');
-        if ($line->{'flags'}{'est_stereo'} eq 'true') {
+        $crypted = 0 if ($line->{'flags'}{'est_clair'});
+        $prog{subtitles} = [ { type => 'onscreen', language => ['fr'] } ] if ($line->{'flags'}{'est_vost'});
+        $prog{video}{quality} = "HDTV" if ($line->{'flags'}{'est_hd'});
+        $prog{premiere} = [] if ($line->{'flags'}{'est_inedit'});
+        $prog{'previously-shown'} = {} if ($line->{'flags'}{'est_redif'});
+        if ($line->{'flags'}{'est_stereo'}) {
             $prog{'audio'}{stereo} = "stereo";
-        } elsif ($line->{'flags'}{'est_dolby'} eq 'true') {
+        } elsif ($line->{'flags'}{'est_dolby'}) {
             $prog{'audio'}{stereo} = "dolby";
         }
         $prog{showview} = $line->{'showview'};
