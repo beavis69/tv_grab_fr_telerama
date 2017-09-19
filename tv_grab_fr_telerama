@@ -1028,11 +1028,17 @@ sub process_channel_grid_page( $$$$ ) {
         }
 
 
+        $subgenre = lc($subgenre) if ($subgenre);
         if ($genretext) {
-            push @{$prog{category}}, [ xmlencoding(lc($genretext)), $LANG ];
+            $genretext = lc($genretext);
+            if (!$subgenre) {
+                $subgenre = $genretext;
+            } elsif ($subgenre !~ /^\Q$genretext\E/) {
+                $subgenre = "$genretext : $subgenre";
+            }
         }
         if ($subgenre) {
-            push @{$prog{category}}, [ xmlencoding(lc($subgenre)), $LANG ];
+            push @{$prog{category}}, [ xmlencoding($subgenre), $LANG ];
         }
 
         if ( $description ne "" ) {
