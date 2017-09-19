@@ -296,7 +296,7 @@ my $DEBUG_CMD = 0;
 XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux');
 
 ##patch: tigerlol: correction des chevauchements d'horaire
-my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,  $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path, $no_cryptedcplus, $no_cryptedpprem );
+my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,  $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path, $no_episodedesc, $no_cryptedcplus, $no_cryptedpprem );
 ##/patch
 
 # debug
@@ -320,6 +320,7 @@ GetOptions('days=i'     => \$opt_days,
            'perweeks' => \$opt_per_weeks,
            'ch_prefix=s'  => \$channel_prefix,
            'ch_postfix=s'  => \$channel_postfix,
+           'no_episodedesc' => \$no_episodedesc,
            'no_cryptedcplus' => \$no_cryptedcplus,
            'no_cryptedpprem' => \$no_cryptedpprem,
            ##Gestion des channels non declares dans les listes "officielles"
@@ -990,10 +991,10 @@ sub process_channel_grid_page( $$$$ ) {
         }
 
 
-        if($episode) {
+        if(!$no_episodedesc && $episode) {
             $description = $episode_text." - ".$description;
         }
-        if($season) {
+        if(!$no_episodedesc && $season) {
             $description = $season_text." - ".$description;
         }
 
