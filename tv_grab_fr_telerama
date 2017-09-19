@@ -943,7 +943,8 @@ sub process_channel_grid_page( $$$$ ) {
         my @cast = @{ $line->{'intervenants'} } if ($line->{'intervenants'});
         foreach my $people (@cast) {
             my $ctype = $people->{'libelle'};
-            my $cname = $people->{'prenom'}." ".$people->{'nom'};
+            my $cname = $people->{'nom'};
+            $cname = "$people->{'prenom'} $cname" if ($people->{'prenom'});
             $cname = $cname." (".$people->{'role'}.")" if ($people->{'role'});
             if ($ctype =~ m/Acteur/ || $ctype =~ m/Interpr.+te/ ) {
               push @{$prog{credits}{actor}}, $cname;
