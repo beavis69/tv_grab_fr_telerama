@@ -883,8 +883,7 @@ sub process_channel_grid_page( $$$$ ) {
         my $description = "";
         $description = $line->{'resume'} if ($line->{'resume'}) ;
         my $genre = $line->{'id_genre'} ? $line->{'id_genre'} : 0;
-        my $genretext = "";
-        $genretext = $genres[$genre] if ($genre);
+        my $genretext = $genre ? $genres[$genre] : "";
         my $critic = "";
 
         # debug_print("possede_critique : ".$line->{'possede_critique'}."\n");
@@ -1029,10 +1028,10 @@ sub process_channel_grid_page( $$$$ ) {
         }
 
 
-        if ($genre > 0 && defined $genretext) {
+        if ($genretext) {
             push @{$prog{category}}, [ xmlencoding(lc($genretext)), $LANG ];
         }
-        if (defined $subgenre && $subgenre ne '') {
+        if ($subgenre) {
             push @{$prog{category}}, [ xmlencoding(lc($subgenre)), $LANG ];
         }
 
