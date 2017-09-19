@@ -62,7 +62,7 @@ B<--ch_prefix S> (string): string to add at the begining of XMLTV channel id
 Default value is "C"
 
 B<--ch_postfix S> (string): string to add at the end of XMLTV channel id
-Default value is ".telerama.fr"
+Default value is ".api.telerama.fr"
 
 B<--quiet> Suppress the progress messages normally written to standard
 error.
@@ -296,7 +296,7 @@ my $DEBUG_CMD = 0;
 XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux');
 
 ##patch: tigerlol: correction des chevauchements d'horaire
-my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,  $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path, $no_cryptedcplus, $no_cryptedpprem );
+my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,  $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path, $no_episodedesc, $no_cryptedcplus, $no_cryptedpprem );
 ##/patch
 
 # debug
@@ -320,6 +320,7 @@ GetOptions('days=i'     => \$opt_days,
            'perweeks' => \$opt_per_weeks,
            'ch_prefix=s'  => \$channel_prefix,
            'ch_postfix=s'  => \$channel_postfix,
+           'no_episodedesc' => \$no_episodedesc,
            'no_cryptedcplus' => \$no_cryptedcplus,
            'no_cryptedpprem' => \$no_cryptedpprem,
            ##Gestion des channels non declares dans les listes "officielles"
@@ -883,8 +884,7 @@ sub process_channel_grid_page( $$$$ ) {
         my $description = "";
         $description = $line->{'resume'} if ($line->{'resume'}) ;
         my $genre = $line->{'id_genre'} ? $line->{'id_genre'} : 0;
-        my $genretext = "";
-        $genretext = $genres[$genre] if ($genre);
+        my $genretext = $genre ? $genres[$genre] : "";
         my $critic = "";
 
         # debug_print("possede_critique : ".$line->{'possede_critique'}."\n");
@@ -943,7 +943,8 @@ sub process_channel_grid_page( $$$$ ) {
         my @cast = @{ $line->{'intervenants'} } if ($line->{'intervenants'});
         foreach my $people (@cast) {
             my $ctype = $people->{'libelle'};
-            my $cname = $people->{'prenom'}." ".$people->{'nom'};
+            my $cname = $people->{'nom'};
+            $cname = "$people->{'prenom'} $cname" if ($people->{'prenom'});
             $cname = $cname." (".$people->{'role'}.")" if ($people->{'role'});
             if ($ctype =~ m/Acteur/ || $ctype =~ m/Interpr.+te/ ) {
               push @{$prog{credits}{actor}}, $cname;
@@ -961,22 +962,22 @@ sub process_channel_grid_page( $$$$ ) {
         }
         $prog{'date'} = $line->{'annee_realisation'} if ($line->{'annee_realisation'});
         $prog{country} = [[$line->{'libelle_nationalite'}]] if ($line->{'libelle_nationalite'});
-        if ($line->{'flags'}{'est_ar16x9'} eq 'true') {
+        if ($line->{'flags'}{'est_ar16x9'}) {
             $prog{video}{aspect} = "16:9";
-        } elsif ($line->{'flags'}{'est_ar4x3'} eq 'true') {
+        } elsif ($line->{'flags'}{'est_ar4x3'}) {
             $prog{video}{aspect} = "4:3";
         }
-        $prog{'audio'}{stereo} = "bilingual" if ($line->{'flags'}{'est_vm'} eq 'true');
+        $prog{'audio'}{stereo} = "bilingual" if ($line->{'flags'}{'est_vm'});
         #$prog{title_orig} = $line->{'titre_original'} if ($line->{'titre_original'});
 
-        $crypted = 0 if ($line->{'flags'}{'est_clair'} eq 'true');
-        $prog{subtitles} = [ { type => 'onscreen', language => ['fr'] } ] if ($line->{'flags'}{'est_vost'} eq 'true');
-        $prog{video}{quality} = "HDTV" if ($line->{'flags'}{'est_hd'} eq 'true');
-        $prog{premiere} = [] if ($line->{'flags'}{'est_inedit'} eq 'true');
-        $prog{'previously-shown'} = {} if ($line->{'flags'}{'est_redif'} eq 'true');
-        if ($line->{'flags'}{'est_stereo'} eq 'true') {
+        $crypted = 0 if ($line->{'flags'}{'est_clair'});
+        $prog{subtitles} = [ { type => 'onscreen', language => ['fr'] } ] if ($line->{'flags'}{'est_vost'});
+        $prog{video}{quality} = "HDTV" if ($line->{'flags'}{'est_hd'});
+        $prog{premiere} = [] if ($line->{'flags'}{'est_inedit'});
+        $prog{'previously-shown'} = {} if ($line->{'flags'}{'est_redif'});
+        if ($line->{'flags'}{'est_stereo'}) {
             $prog{'audio'}{stereo} = "stereo";
-        } elsif ($line->{'flags'}{'est_dolby'} eq 'true') {
+        } elsif ($line->{'flags'}{'est_dolby'}) {
             $prog{'audio'}{stereo} = "dolby";
         }
         $prog{showview} = $line->{'showview'};
@@ -990,10 +991,10 @@ sub process_channel_grid_page( $$$$ ) {
         }
 
 
-        if($episode) {
+        if(!$no_episodedesc && $episode) {
             $description = $episode_text." - ".$description;
         }
-        if($season) {
+        if(!$no_episodedesc && $season) {
             $description = $season_text." - ".$description;
         }
 
@@ -1028,11 +1029,32 @@ sub process_channel_grid_page( $$$$ ) {
         }
 
 
-        if ($genre > 0 && defined $genretext) {
-            push @{$prog{category}}, [ xmlencoding(lc($genretext)), $LANG ];
+        $subgenre = lc($subgenre) if ($subgenre);
+        if ($genretext && defined $line->{'url'}) {
+            if ($line->{'url'} =~ m%/documentaire/%) {
+                $genretext = "documentaire";
+            } elsif ($line->{'url'} =~ m%/(emission-sportive|magazine-sportif)/%) {
+                $genretext = "sport";
+            } elsif ($line->{'url'} =~ m%/films/%) {
+                $genretext = "film";
+            } elsif ($line->{'url'} =~ m%/feuilleton/%) {
+                $genretext = "feuilleton";
+            } elsif ($line->{'url'} =~ m%/serie/%) {
+                $genretext = "série";
+            } elsif ($line->{'url'} =~ m%/telefilm/%) {
+                $genretext = "téléfilm";
+            }
         }
-        if (defined $subgenre && $subgenre ne '') {
-            push @{$prog{category}}, [ xmlencoding(lc($subgenre)), $LANG ];
+        if ($genretext) {
+            $genretext = lc($genretext);
+            if (!$subgenre) {
+                $subgenre = $genretext;
+            } elsif ($subgenre !~ /^\Q$genretext\E/) {
+                $subgenre = "$genretext : $subgenre";
+            }
+        }
+        if ($subgenre) {
+            push @{$prog{category}}, [ xmlencoding($subgenre), $LANG ];
         }
 
         if ( $description ne "" ) {
