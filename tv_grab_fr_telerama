@@ -1029,6 +1029,21 @@ sub process_channel_grid_page( $$$$ ) {
 
 
         $subgenre = lc($subgenre) if ($subgenre);
+        if ($genretext && defined $line->{'url'}) {
+            if ($line->{'url'} =~ m%/documentaire/%) {
+                $genretext = "documentaire";
+            } elsif ($line->{'url'} =~ m%/(emission-sportive|magazine-sportif)/%) {
+                $genretext = "sport";
+            } elsif ($line->{'url'} =~ m%/films/%) {
+                $genretext = "film";
+            } elsif ($line->{'url'} =~ m%/feuilleton/%) {
+                $genretext = "feuilleton";
+            } elsif ($line->{'url'} =~ m%/serie/%) {
+                $genretext = "série";
+            } elsif ($line->{'url'} =~ m%/telefilm/%) {
+                $genretext = "téléfilm";
+            }
+        }
         if ($genretext) {
             $genretext = lc($genretext);
             if (!$subgenre) {
