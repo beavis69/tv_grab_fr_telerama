@@ -95,6 +95,7 @@ L<xmltv(5)>
 Zubrick, zubrick<at>number6<dot>ch
 Contributed by patrick-g  pgn<dot>ltech<at>free<dot>fr
 Contributed by hamelg
+contributed by fgouget
 
 =head1 LICENSE
 
@@ -208,6 +209,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 1.27 Correction de certains champs
 
 1.28 Ajout api_cle
+
+1.29 Some fixes and better category values
+
 =cut
 
 
@@ -228,7 +232,7 @@ END
 
 use warnings;
 use strict;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.28 2017/09/15 20:33:00 hamelg Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.29 2017/09/19 18:33:00 fgouget Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
