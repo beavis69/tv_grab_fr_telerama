@@ -62,7 +62,7 @@ B<--ch_prefix S> (string): string to add at the begining of XMLTV channel id
 Default value is "C"
 
 B<--ch_postfix S> (string): string to add at the end of XMLTV channel id
-Default value is ".telerama.fr"
+Default value is ".api.telerama.fr"
 
 B<--quiet> Suppress the progress messages normally written to standard
 error.
