@@ -212,6 +212,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 1.29 Some fixes and better category values
 
+1.30 Fixe inverted test of $genretext from commit e595d56e286ba66120fd232f68f36c28c6870d6d
+     Add cli option for inhibiting category aggregation.
 =cut
 
 
@@ -300,7 +302,7 @@ my $DEBUG_CMD = 0;
 XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux');
 
 ##patch: tigerlol: correction des chevauchements d'horaire
-my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,  $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path, $no_episodedesc, $no_cryptedcplus, $no_cryptedpprem );
+my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,  $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path, $no_episodedesc, $no_aggregatecat, $no_cryptedcplus, $no_cryptedpprem );
 ##/patch
 
 # debug
@@ -325,6 +327,7 @@ GetOptions('days=i'     => \$opt_days,
            'ch_prefix=s'  => \$channel_prefix,
            'ch_postfix=s'  => \$channel_postfix,
            'no_episodedesc' => \$no_episodedesc,
+           'no_aggregatecat' => \$no_aggregatecat,
            'no_cryptedcplus' => \$no_cryptedcplus,
            'no_cryptedpprem' => \$no_cryptedpprem,
            ##Gestion des channels non declares dans les listes "officielles"
@@ -1034,7 +1037,7 @@ sub process_channel_grid_page( $$$$ ) {
 
 
         $subgenre = lc($subgenre) if ($subgenre);
-        if ($genretext && defined $line->{'url'}) {
+        if (!$genretext && defined $line->{'url'}) {
             if ($line->{'url'} =~ m%/documentaire/%) {
                 $genretext = "documentaire";
             } elsif ($line->{'url'} =~ m%/(emission-sportive|magazine-sportif)/%) {
@@ -1049,16 +1052,25 @@ sub process_channel_grid_page( $$$$ ) {
                 $genretext = "téléfilm";
             }
         }
-        if ($genretext) {
-            $genretext = lc($genretext);
-            if (!$subgenre) {
-                $subgenre = $genretext;
-            } elsif ($subgenre !~ /^\Q$genretext\E/) {
-                $subgenre = "$genretext : $subgenre";
+        if($no_aggregatecat) {
+            if ($genretext) {
+                push @{$prog{category}}, [ xmlencoding($genretext), $LANG ];
             }
-        }
-        if ($subgenre) {
-            push @{$prog{category}}, [ xmlencoding($subgenre), $LANG ];
+            if ($subgenre) {
+                push @{$prog{category}}, [ xmlencoding($subgenre), $LANG ];
+            }
+        } else {
+            if ($genretext) {
+                $genretext = lc($genretext);
+                if (!$subgenre) {
+                    $subgenre = $genretext;
+                } elsif ($subgenre !~ /^\Q$genretext\E/) {
+                    $subgenre = "$genretext : $subgenre";
+                }
+            }
+            if ($subgenre) {
+                push @{$prog{category}}, [ xmlencoding($subgenre), $LANG ];
+            }
         }
 
         if ( $description ne "" ) {
