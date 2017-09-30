@@ -230,6 +230,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
      Capitalise les catégories retrouvées via URL (en mode aggregate, elles sont remises en minuscule).
      Corrige la chaine de version qui était restée en 1.29
      Ajout de l'option --save_json
+     Remise en place du rating CSA, qui ne fonctionnait plus depuis la nouvelle API.
 =cut
 
 
@@ -471,7 +472,6 @@ sub mkjsonname($$) {
         $l .= $ul;
         $l .= "$_"."_"."$p{$_}";
         $ul = "_";
-        # debug_print($l."\n");
     }
     $l .= ".json";
 
@@ -487,7 +487,6 @@ sub mkurl($$) {
 
     foreach(sort keys %p) {
         $l .= "$_$p{$_}";
-        # debug_print($l."\n");
     }
 
     $p{'api_signature'} = hmac_sha1_hex("$u$l", 'Eufea9cuweuHeif');
@@ -998,10 +997,35 @@ sub process_channel_grid_page( $$$$$ ) {
         my $episode_text = "Episode:".$episode if ($episode);
         my $season_text = "Saison:".$season if ($season);
         my $epstring;
-        my $rating2;
-        if ($line->{'CSA'} && $line->{'CSA'} eq "TP") {
-            $rating2 = 1;
+        my $rating2 = 0;
+        my $age = 0;
+        my $icon = "";
+
+        if ($line->{'csa'}) {
+            # debug_print("Rating CSA = ".$line->{'csa'});
+            if ($line->{'csa'} eq "TP") {
+                $rating2 = 1;
+            } elsif ($line->{'csa'} == 10) {
+                $rating2 = 2;
+                $icon = 'http://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/Moins10.svg/200px-Moins10.svg.png';
+                $age = -10;
+            } elsif ($line->{'csa'} eq "12") {
+                $rating2 = 3;
+                $icon = 'http://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Moins12.svg/200px-Moins12.svg.png';
+                $age = -12;
+            } elsif ($line->{'csa'} eq "16") {
+                $rating2 = 4;
+                $icon = 'http://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Moins16.svg/200px-Moins16.svg.png';
+                $age = -16;
+            } elsif ($line->{'csa'} eq "18") {
+                $rating2 = 5;
+                $icon = 'http://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Moins18.svg/200px-Moins18.svg.png';
+                $age = -18;
+            }
         }
+        # debug_print("   rating2 = ".$rating2." age = ".$age."\n");
+
+
         $prog{length} = str2time($line->{'horaire'}{'fin'}) - str2time($line->{'horaire'}{'debut'});
 
         $prog{'sub-title'} = [ [ $line->{'soustitre'} ] ] if ($line->{'soustitre'});
@@ -1144,9 +1168,20 @@ sub process_channel_grid_page( $$$$$ ) {
 
 
 
-        if ($rating2) {
+#        if ($rating2) {
+#            push @{$prog{rating}}, [ "Tout public", "CSA", [] ];
+#        }
+
+        if ($age == 0) {
             push @{$prog{rating}}, [ "Tout public", "CSA", [] ];
+        } else {
+            push @{$prog{rating}}, [ $age, "CSA", [ {src => $icon}] ];
         }
+
+
+
+
+
 
         # étoiles
         $prog{'star-rating'} = [$stars."/5"] if ($stars);
