@@ -17,7 +17,7 @@ tv_grab_fr_telerama - Grab TV listings for France.
         [--offset N] [--quiet] [--perdays] [--perweeks]
         [--ch_prefix prefix] [--ch_postfix postfix]
         [--no_episodedesc] [--no_aggregatecat]
-        [--show_url] 
+        [--show_url] [--save_json]
         [--no_cryptedcplus] [--no_cryptedpprem]
  To show capabilities:
    tv_grab_fr --capabilities
@@ -90,6 +90,8 @@ B<--no_aggregatecat> n'aggrege pas les multiples categories d'un programme en un
 
 B<--show_url> Affiche l'URL des pages de programmes téléchargées.
 
+B<--save_json> Sauve les pages programmes json telles que reçues (raw) de Télérama.
+
 B<--no_cryptedcplus> Cache les programmes crypté de Canal+.
 
 B<--no_cryptedpprem> Cache les programmes crypté de Paris Première.
@@ -101,7 +103,7 @@ L<xmltv(5)>
 =head1 AUTHOR
 
 Zubrick, zubrick<at>number6<dot>ch
-Contributed by patrick-g  pgn<dot>ltech<at>free<dot>fr
+Contributed by patrick-g  patrickg<dot>github<at>free<dot>fr
 Contributed by hamelg
 contributed by fgouget
 
@@ -227,6 +229,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
      Ajout de l'option '--show_url' pour afficher l'URL Télérama récupérée.
      Capitalise les catégories retrouvées via URL (en mode aggregate, elles sont remises en minuscule).
      Corrige la chaine de version qui était restée en 1.29
+     Ajout de l'option --save_json
 =cut
 
 
@@ -238,7 +241,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     [--offset N] [--quiet] [--perdays] [--perweeks]
     [--ch_prefix prefix] [--ch_postfix postfix] [--delay N]
     [--no_episodedesc] [--no_aggregatecat]
-    [--show_url]
+    [--show_url] [--save_json]
     [--no_cryptedcplus] [--no_cryptedpprem]
     prefix, postfix : strings, "" for null string
     To show capabilities : $0 --capabilities
@@ -317,7 +320,9 @@ my $DEBUG_CMD = 0;
 XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux');
 
 ##patch: tigerlol: correction des chevauchements d'horaire
-my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,  $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path, $no_episodedesc, $no_aggregatecat, $show_url, $no_cryptedcplus, $no_cryptedpprem );
+my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,
+    $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path, 
+    $no_episodedesc, $no_aggregatecat, $show_url, $save_json, $no_cryptedcplus, $no_cryptedpprem );
 ##/patch
 
 # debug
@@ -344,6 +349,7 @@ GetOptions('days=i'     => \$opt_days,
            'no_episodedesc' => \$no_episodedesc,
            'no_aggregatecat' => \$no_aggregatecat,
            'show_url' => \$show_url,
+           'save_json' => \$save_json,
            'no_cryptedcplus' => \$no_cryptedcplus,
            'no_cryptedpprem' => \$no_cryptedpprem,
            ##Gestion des channels non declares dans les listes "officielles"
@@ -448,13 +454,30 @@ if (-e "./logo-path.txt")
 #***************************************************************************
 # Sub sections
 #***************************************************************************
-sub get_channels( );
+sub get_channels( $ );
 sub return_other_channels( );
 sub build_other_channel_filename();
 sub get_more_channel_icon( $ );
-sub process_channel_grid_page( $$$$ );
+sub process_channel_grid_page( $$$$$ );
 sub debug_print( @ );
-sub get_page( $ );
+sub get_page( $$ );
+
+sub mkjsonname($$) {
+    my ($u, %p) = ($_[0], %{$_[1]});
+    my $l = "";
+    my $ul = "";
+    
+    foreach(sort keys %p) {
+        $l .= $ul;
+        $l .= "$_"."_"."$p{$_}";
+        $ul = "_";
+        # debug_print($l."\n");
+    }
+    $l .= ".json";
+
+    return $l;
+}
+
 
 sub mkurl($$) {
     my ($u, %p) = ($_[0], %{$_[1]});
@@ -464,6 +487,7 @@ sub mkurl($$) {
 
     foreach(sort keys %p) {
         $l .= "$_$p{$_}";
+        # debug_print($l."\n");
     }
 
     $p{'api_signature'} = hmac_sha1_hex("$u$l", 'Eufea9cuweuHeif');
@@ -474,7 +498,7 @@ sub mkurl($$) {
 
 
 # Set this to 1 of you debug strings
-my $DEBUG_FR = 0;
+my $DEBUG_FR = 1;
 # Internal debug functions
 sub debug_print( @ ) {
     if ($DEBUG_FR) { print STDERR @_; }
@@ -498,7 +522,7 @@ if ($mode eq 'configure') {
 
     #my $bar = new XMLTV::ProgressBar('getting channel lists', scalar grep { $_ } @gtwant) if not $opt_quiet;
     my %channels_for;
-    my %channels = get_channels();
+    my %channels = get_channels("configure.json");
     die 'No channels could be found' if not %channels;
 
 
@@ -659,7 +683,7 @@ if ($mode eq 'list-channels') {
     #           my $gtname = shift @gtnames;
     #           if ($gtw) {
     #                   say  "Now getting grid : $_ \n";
-    my %channels = get_channels( );
+    my %channels = get_channels("list_chan.json");
     die 'no channels could be found' if (scalar(keys(%channels)) == 0);
     foreach my $ch_did (sort(keys %channels)) {
         my $ch_xid = $channel_prefix.$ch_did.$channel_postfix;
@@ -715,6 +739,8 @@ foreach $ind (sort { $a <=> $b } keys %channels) {
     my $url;
     my $i;
     my $dayoff;
+    my $json_name = "";
+
     $writer->write_channel({ id => $channel_prefix.$chid.$channel_postfix, 'display-name' => [[$channels{$ind}{name}]], 'icon' => [{src=>$channels{$ind}{icon}}]});
     if ( $opt_per_days ) {
         for ($i=$opt_offset; $i < $opt_offset+$opt_days; $i++ ) {
@@ -726,7 +752,12 @@ foreach $ind (sort { $a <=> $b } keys %channels) {
             if ($show_url) {
                 print STDERR $url."\n";
             }
-            push @to_get, [ $url, $chid, $i ];
+            if ($save_json) {
+                $json_name = mkjsonname("", { 'dates' => "$dayoff", 'id_chaines' => "$chid" });
+                # debug_print($json_name."\n");
+            }
+
+            push @to_get, [ $url, $chid, $i, $json_name ];
         }
     } else {
         foreach (@offsets) {
@@ -741,8 +772,8 @@ my $bar = new XMLTV::ProgressBar('getting listings', scalar @to_get)  if not $op
 Date_Init('SetDate=now,UTC');
 
 foreach (@to_get) {
-    my ($url, $chid, $slot) = @$_;
-    process_channel_grid_page($writer, $chid, $url, $slot);
+    my ($url, $chid, $slot, $jsname) = @$_;
+    process_channel_grid_page($writer, $chid, $url, $slot, $jsname);
     update $bar if not $opt_quiet;
 }
 
@@ -821,18 +852,20 @@ sub get_more_channel_icon( $ ) {
 }
 
 #Get the channel from a grid id, including OTHERCHANNELS mode
-sub get_channels( ) {
+sub get_channels( $ ) {
+    my $jsname = shift ;
+
     my %channels;
 
     # Get the current page
+
     my $my_url = mkurl($CHANNEL_GRID, {});
     if ($show_url) {
         print STDERR $my_url."\n";
     }
 
-    my $page = get_page($my_url);
+    my $page = get_page($my_url, $jsname);
 
-    #debug_print( "URL  : " . $CHANNEL_GRID ."\n");
     #  debug_print($page);
     my $json_hash = decode_json($page);
     my $chicon = "";
@@ -864,10 +897,12 @@ sub get_channels( ) {
 }
 
 
-sub get_page_json( $ ) {
+sub get_page_json( $$ ) {
 
     my $url = shift;
-    my $page = get_page($url);
+    my $jsname = shift;
+
+    my $page = get_page($url, $jsname);
     #$page =~ s/\\u0000//g;
     #$page =~ s/\\u00ad//g;
     #$page =~ s/\\u00bb//g;
@@ -887,17 +922,17 @@ sub get_page_json( $ ) {
     return $json_hash;
 }
 
-sub process_channel_grid_page( $$$$ ) {
-    my ($writer, $chid, $url, $slot) = @_;
+sub process_channel_grid_page( $$$$$ ) {
+    my ($writer, $chid, $url, $slot, $jsname) = @_;
 
     if (!@genres) {
-        get_channels();
+        get_channels("categories.json");
     }
 
-    my $json_hash = get_page_json( $url );
+    my $json_hash = get_page_json( $url, $jsname );
     if (!$json_hash->{'status'} || $json_hash->{'status'} != 200) {
         print STDERR "Status différent de 200, essai de nouveau";
-        $json_hash = get_page_json( $url );
+        $json_hash = get_page_json( $url, $jsname );
     }
 
     #print "Getting URL : ".$url."\n";
@@ -1076,6 +1111,7 @@ sub process_channel_grid_page( $$$$ ) {
                 $genretext = "Téléfilm";
             }
         }
+
         if($no_aggregatecat) {
             if ($genretext) {
                 push @{$prog{category}}, [ xmlencoding($genretext), $LANG ];
@@ -1084,6 +1120,7 @@ sub process_channel_grid_page( $$$$ ) {
                 push @{$prog{category}}, [ xmlencoding($subgenre), $LANG ];
             }
         } else {
+        
             if ($genretext) {
                 $genretext = lc($genretext);
                 if (!$subgenre) {
@@ -1125,8 +1162,9 @@ sub process_channel_grid_page( $$$$ ) {
 }
 
 # use an integrated sub to set a specific user agent
-sub get_page( $ ) {
+sub get_page( $$ ) {
     my $url = shift;
+    my $jsname = shift ;
 
     if (defined $last_get_time) {
         # A page has already been retrieved recently.  See if we need
@@ -1164,10 +1202,26 @@ sub get_page( $ ) {
             print STDERR "Seconde erreur ".$errors{$url}." en récupérant ".$url."\n";
             return undef;
         } else {
+            
+            if ($save_json) {
+                # Création du fichier 'fichier.txt'
+                open (JSFIC, ">$jsname") || die ("Vous ne pouvez pas créer le fichier \"$jsname\"");
+                # On écrit dans le fichier...
+                print JSFIC $r->content;
+                close (JSFIC);
+            }
+
             return $r->content;
         }
     } else {
         # debug_print "Récupération de ".$url."\n";
+        if ($save_json) {
+            # Création du fichier 'fichier.txt'
+            open (JSFIC, ">$jsname") || die ("Vous ne pouvez pas créer le fichier \"$jsname\"");
+            # On écrit dans le fichier...
+            print JSFIC $r->content;
+            close (JSFIC);
+        }
         return $r->content;
     }
 
