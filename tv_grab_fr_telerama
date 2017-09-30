@@ -16,6 +16,8 @@ tv_grab_fr_telerama - Grab TV listings for France.
    tv_grab_fr [--config-file FILE] [--output FILE] [--days N]
         [--offset N] [--quiet] [--perdays] [--perweeks]
         [--ch_prefix prefix] [--ch_postfix postfix]
+        [--no_episodedesc] [--no_aggregatecat]
+        [--show_url] 
         [--no_cryptedcplus] [--no_cryptedpprem]
  To show capabilities:
    tv_grab_fr --capabilities
@@ -81,6 +83,12 @@ B<--version> Show the version of the grabber.
 B<--help> Print a help message and exit.
 
 B<--delay I> Règle le delai maximum I en secondes entre 2 requetes au serveur. Defaut 2
+
+B<--no_episodedesc> n'inclue pas la description des épisodes dans le fichier genere.
+
+B<--no_aggregatecat> n'aggrege pas les multiples categories d'un programme en une seule..
+
+B<--show_url> Affiche l'URL des pages de programmes téléchargées.
 
 B<--no_cryptedcplus> Cache les programmes crypté de Canal+.
 
@@ -214,6 +222,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 1.30 Fixe inverted test of $genretext from commit e595d56e286ba66120fd232f68f36c28c6870d6d
      Add cli option for inhibiting category aggregation.
+
+1.31 Corrige la fonction usage et l'aide : ajout des nouvelles options
+     Ajout de l'option '--show_url' pour afficher l'URL Télérama récupérée.
+     Capitalise les catégories retrouvées via URL (en mode aggregate, elles sont remises en minuscule).
+     Corrige la chaine de version qui était restée en 1.29
 =cut
 
 
@@ -224,6 +237,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     To grab listings: tv_grab_fr [--config-file FILE] [--output FILE] [--days N]
     [--offset N] [--quiet] [--perdays] [--perweeks]
     [--ch_prefix prefix] [--ch_postfix postfix] [--delay N]
+    [--no_episodedesc] [--no_aggregatecat]
+    [--show_url]
     [--no_cryptedcplus] [--no_cryptedpprem]
     prefix, postfix : strings, "" for null string
     To show capabilities : $0 --capabilities
@@ -234,7 +249,7 @@ END
 
 use warnings;
 use strict;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.29 2017/09/19 18:33:00 fgouget Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.31 2017/09/30 16:21:00 pgouin Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -302,7 +317,7 @@ my $DEBUG_CMD = 0;
 XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux');
 
 ##patch: tigerlol: correction des chevauchements d'horaire
-my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,  $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path, $no_episodedesc, $no_aggregatecat, $no_cryptedcplus, $no_cryptedpprem );
+my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,  $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path, $no_episodedesc, $no_aggregatecat, $show_url, $no_cryptedcplus, $no_cryptedpprem );
 ##/patch
 
 # debug
@@ -328,6 +343,7 @@ GetOptions('days=i'     => \$opt_days,
            'ch_postfix=s'  => \$channel_postfix,
            'no_episodedesc' => \$no_episodedesc,
            'no_aggregatecat' => \$no_aggregatecat,
+           'show_url' => \$show_url,
            'no_cryptedcplus' => \$no_cryptedcplus,
            'no_cryptedpprem' => \$no_cryptedpprem,
            ##Gestion des channels non declares dans les listes "officielles"
@@ -707,6 +723,9 @@ foreach $ind (sort { $a <=> $b } keys %channels) {
             #debug_print( "dayoff  : " . gmtime(time() + 3600 * 24 * $i) ."\n");
 
             $url = mkurl($CHANNEL_GRID_PAGE, { 'dates' => "$dayoff", 'id_chaines' => "$chid", 'nb_par_page' => "100" });
+            if ($show_url) {
+                print STDERR $url."\n";
+            }
             push @to_get, [ $url, $chid, $i ];
         }
     } else {
@@ -787,7 +806,7 @@ sub get_more_channel_icon( $ ) {
     # Get the current page
     my $t = get_nice_tree($url);
 
-    debug_print( "URL  : " . $url ."\n");
+    # debug_print( "URL  : " . $url ."\n");
     # Set by default an EMPTY logo
     my $chicon = "EMPTY";
 
@@ -806,10 +825,15 @@ sub get_channels( ) {
     my %channels;
 
     # Get the current page
-    my $page = get_page(mkurl($CHANNEL_GRID, {}));
+    my $my_url = mkurl($CHANNEL_GRID, {});
+    if ($show_url) {
+        print STDERR $my_url."\n";
+    }
+
+    my $page = get_page($my_url);
 
     #debug_print( "URL  : " . $CHANNEL_GRID ."\n");
-    #   debug_print($page);
+    #  debug_print($page);
     my $json_hash = decode_json($page);
     my $chicon = "";
     my @lines = @{ $json_hash->{'donnees'}{'chaines'} };
@@ -1039,17 +1063,17 @@ sub process_channel_grid_page( $$$$ ) {
         $subgenre = lc($subgenre) if ($subgenre);
         if (!$genretext && defined $line->{'url'}) {
             if ($line->{'url'} =~ m%/documentaire/%) {
-                $genretext = "documentaire";
+                $genretext = "Documentaire";
             } elsif ($line->{'url'} =~ m%/(emission-sportive|magazine-sportif)/%) {
-                $genretext = "sport";
+                $genretext = "Sport";
             } elsif ($line->{'url'} =~ m%/films/%) {
-                $genretext = "film";
+                $genretext = "Film";
             } elsif ($line->{'url'} =~ m%/feuilleton/%) {
-                $genretext = "feuilleton";
+                $genretext = "Feuilleton";
             } elsif ($line->{'url'} =~ m%/serie/%) {
-                $genretext = "série";
+                $genretext = "Série";
             } elsif ($line->{'url'} =~ m%/telefilm/%) {
-                $genretext = "téléfilm";
+                $genretext = "Téléfilm";
             }
         }
         if($no_aggregatecat) {
@@ -1143,7 +1167,7 @@ sub get_page( $ ) {
             return $r->content;
         }
     } else {
-        debug_print "Récupération de ".$url."\n";
+        # debug_print "Récupération de ".$url."\n";
         return $r->content;
     }
 
