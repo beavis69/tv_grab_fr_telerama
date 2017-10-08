@@ -36,14 +36,14 @@ from the current day onwards. The program description are
 downloaded.
 
 B<--configure-more-channels> Use this option to create AUTRES CHAINES list.
- This allow to grab listings for some channels that are not in automatically
+ This allows grabbing listings for some channels that are not in automatically
 generated lists.
 
-B<--configure> Grab channels informations from the website and ask for
+B<--configure> Grab channels information from the website and ask for
 channel type and names.
 
 B<--config-file FILE> Use FILE as config file instead of the default config
-file. This allow to have different config files for i.e. different apps.
+file. This allows having different config files for different apps.
 
 B<--gui OPTION> Use this option to enable a graphical interface to be used.
 OPTION may be 'Tk', or left blank for the best available choice.
@@ -60,7 +60,7 @@ B<--offset N> Start grabbing N days from today, rather than starting
 today.  N may be negative. Due to the website organization, N cannot
 be inferior to -1.Default value is 0
 
-B<--ch_prefix S> (string): string to add at the begining of XMLTV channel id
+B<--ch_prefix S> (string): string to add at the beginning of XMLTV channel id
 Default value is "C"
 
 B<--ch_postfix S> (string): string to add at the end of XMLTV channel id
@@ -84,9 +84,9 @@ B<--help> Print a help message and exit.
 
 B<--delay I> Règle le delai maximum I en secondes entre 2 requetes au serveur. Defaut 2
 
-B<--no_episodedesc> n'inclue pas la description des épisodes dans le fichier genere.
+B<--no_episodedesc> n'inclut pas la description des épisodes dans le fichier genere.
 
-B<--no_aggregatecat> n'aggrege pas les multiples categories d'un programme en une seule..
+B<--no_aggregatecat> n'aggrege pas les multiples categories d'un programme en une seule.
 
 B<--show_url> Affiche l'URL des pages de programmes téléchargées.
 
@@ -105,7 +105,7 @@ L<xmltv(5)>
 Zubrick, zubrick<at>number6<dot>ch
 Contributed by patrick-g  patrickg<dot>github<at>free<dot>fr
 Contributed by hamelg
-contributed by fgouget
+Contributed by fgouget
 
 =head1 LICENSE
 
@@ -508,6 +508,12 @@ sub xmlencoding {
     $_[0] =~ s/</&lt;/g;
     $_[0] =~ s/>/&gt;/g;
     $_[0] =~ s/&/\%26/g;
+    return $_[0];
+}
+
+sub trim {
+    $_[0] =~ s/^\s+//;
+    $_[0] =~ s/\s+$//;
     return $_[0];
 }
 
@@ -947,7 +953,7 @@ sub process_channel_grid_page( $$$$$ ) {
         my $enddate = $line->{'horaire'}{'fin'};
         my $title = $line->{'titre'};
         my $description = "";
-        $description = $line->{'resume'} if ($line->{'resume'}) ;
+        $description = trim($line->{'resume'}) if ($line->{'resume'}) ;
         my $genre = $line->{'id_genre'} ? $line->{'id_genre'} : 0;
         my $genretext = $genre ? $genres[$genre] : "";
         my $critic = "";
@@ -956,10 +962,10 @@ sub process_channel_grid_page( $$$$$ ) {
         # debug_print("possede_notule : ".$line->{'possede_notule'}."\n");
 
         if ($line->{'possede_critique'} == 1) {
-            $critic = $line->{'critique'};
+            $critic = trim($line->{'critique'});
             # debug_print("critique : ".$critic."\n");
         } elsif ($line->{'possede_notule'} == 1) {
-            $critic = $line->{'notule'};
+            $critic = trim($line->{'notule'});
             # debug_print("notule : ".$critic."\n");
         }
 
@@ -1159,7 +1165,11 @@ sub process_channel_grid_page( $$$$$ ) {
         }
 
         if ( $description ne "" ) {
-            if($critic) {
+            if(!$critic) {
+                ; # Nothing to do
+            } elsif($critic eq $description) {
+                $description = "Critique : ".$critic;
+            } else {
                 $description = $description." - Critique : ".$critic;
             }
             $description =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F//d;
