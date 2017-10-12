@@ -231,6 +231,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
      Corrige la chaine de version qui était restée en 1.29
      Ajout de l'option --save_json
      Remise en place du rating CSA, qui ne fonctionnait plus depuis la nouvelle API.
+
+1.32 Utilise le role_id pour les credits si aucun libellé ne correspond.
 =cut
 
 
@@ -253,7 +255,7 @@ END
 
 use warnings;
 use strict;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.31 2017/09/30 16:21:00 pgouin Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.32 2017/10/12 18:21:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
