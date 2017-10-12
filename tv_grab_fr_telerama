@@ -1043,7 +1043,7 @@ sub process_channel_grid_page( $$$$$ ) {
     my @cast = @{ $line->{'intervenants'} } if ($line->{'intervenants'});
     foreach my $people (@cast) {
       my $ctype = $people->{'libelle'};
-      my $roleid = $people->{'roleid'};
+      my $roleid = $people->{'id_role'};
       my $cname = $people->{'nom'};
       $cname = "$people->{'prenom'} $cname" if ($people->{'prenom'});
       $cname = $cname." (".$people->{'role'}.")" if ($people->{'role'});
