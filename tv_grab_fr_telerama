@@ -1060,7 +1060,7 @@ sub process_channel_grid_page( $$$$$ ) {
       } else {
         if ($roleid eq "1") {
           push @{$prog{credits}{actor}}, $cname;
-        } elsif ($roleid eq "2") {
+        } elsif ($roleid eq "2" || $roleid eq "12") {
           push @{$prog{credits}{director}}, $cname;
         } elsif ($roleid eq "3") {
           push @{$prog{credits}{writer}}, $cname;
