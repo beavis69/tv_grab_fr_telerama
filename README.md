@@ -1,6 +1,15 @@
 # tv_grab_fr_telerama
 XMLTV Grabber using telerama data
 
+## Problème de contenu?
+Le contenu n'étant pas généré par l'application mais récupéré sur une source de données tierce, il est inutile de nous contacter pour un problème d'exactitude du contenu si celui-ci est également présent sur les différents support de télérama (web, application mobile, ...)
+
+Site Web: http: http://television.telerama.fr/tele/grille<br />
+application android: https://play.google.com/store/apps/details?id=com.telerama.fr<br />
+application iOS: https://itunes.apple.com/fr/app/programme-tv-telerama/id324160932?mt=8
+
+<b>Merci de vérifier avant d'ouvrir un ticket</b>
+
 ## Nouvelle API telerama
 <b>Depuis la version 1.22</b>, une nouvelle api de telerama est utilisée. 
 
@@ -12,5 +21,4 @@ Si vous utilisez mythtv, il conviendra de modifier également ces ids dans la ba
 
 Ce fichier de configuration doit également être placé dans votre répertoire xmltv à la place du précédent.
 
-## Problème de contenu
-Le contenu n'étant pas généré par l'application mais récupéré sur une source de données tierce, il est inutile de nous contacter pour un problème d'exactitude du contenu si celui-ci est également présent sur les différents support de télérama (web, application mobile, ...)
+
