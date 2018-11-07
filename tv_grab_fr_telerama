@@ -233,6 +233,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
      Remise en place du rating CSA, qui ne fonctionnait plus depuis la nouvelle API.
 
 1.32 Utilise le role_id pour les credits si aucun libellé ne correspond.
+
+1.33 Corrige un crash lorsque telerama renvoi un acteur sans nom
 =cut
 
 
@@ -255,7 +257,7 @@ END
 
 use warnings;
 use strict;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.32 2017/10/12 18:21:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.33 2018/11/08 22:21:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -279,7 +281,7 @@ use POSIX;
 use Encode;
 #use Encode::Detect;
 use JSON;
-#use Data::Dumper;
+use Data::Dumper;
 use Date::Parse;
 use Digest::HMAC_SHA1 qw(hmac_sha1_hex);
 
@@ -917,7 +919,7 @@ sub get_page_json( $$ ) {
   #$page =~ s/\\u00bb//g;
 
 
-  #debug_print("Getting URL : ".$url."\n");
+  # debug_print("Getting URL : ".$url."\n");
   #$page  =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F//d;
 
   my $json_hash;
@@ -949,7 +951,7 @@ sub process_channel_grid_page( $$$$$ ) {
 
   foreach my $line ( @lines ) {
     # debug_print "Found line : " . $line . "\n";
-    #print STDERR Dumper($line);
+    # print STDERR Dumper($line);
 
     $chid = $line->{'id_chaine'};
 
@@ -1045,29 +1047,31 @@ sub process_channel_grid_page( $$$$$ ) {
       my $ctype = $people->{'libelle'};
       my $roleid = $people->{'id_role'};
       my $cname = $people->{'nom'};
-      $cname = "$people->{'prenom'} $cname" if ($people->{'prenom'});
-      $cname = $cname." (".$people->{'role'}.")" if ($people->{'role'});
-      if ($ctype =~ m/Acteur/ || $ctype =~ m/Interpr.+te/ ) {
-        push @{$prog{credits}{actor}}, $cname;
-      } elsif ($ctype =~ m/R.+alisateur/ || $ctype =~ m/Metteur en Sc.+ne/) {
-        push @{$prog{credits}{director}}, $cname;
-      } elsif ($ctype =~ m/Pr.+sentateur/ || $ctype =~ m/pr.+sentateur/) {
-        push @{$prog{credits}{presenter}}, $cname;
-      } elsif ($ctype =~ m/Musique/) {
-        push @{$prog{credits}{composer}}, $cname;
-      } elsif ($ctype =~ m/Cr.+ateur/ || $ctype =~ m/Auteur/ || $ctype =~ m/Sc.+nariste/ || $ctype =~ m/Sc.+nario/ || $ctype =~ m/Dialogue/) {
-        push @{$prog{credits}{writer}}, $cname;
-      } else {
-        if ($roleid eq "1") {
+      if ($cname) {
+        $cname = "$people->{'prenom'} $cname" if ($people->{'prenom'});
+        $cname = $cname." (".$people->{'role'}.")" if ($people->{'role'});
+        if ($ctype =~ m/Acteur/ || $ctype =~ m/Interpr.+te/ ) {
           push @{$prog{credits}{actor}}, $cname;
-        } elsif ($roleid eq "2" || $roleid eq "12") {
+        } elsif ($ctype =~ m/R.+alisateur/ || $ctype =~ m/Metteur en Sc.+ne/) {
           push @{$prog{credits}{director}}, $cname;
-        } elsif ($roleid eq "3") {
-          push @{$prog{credits}{writer}}, $cname;
-        } elsif ($roleid eq "4") {
+        } elsif ($ctype =~ m/Pr.+sentateur/ || $ctype =~ m/pr.+sentateur/) {
+          push @{$prog{credits}{presenter}}, $cname;
+        } elsif ($ctype =~ m/Musique/) {
           push @{$prog{credits}{composer}}, $cname;
+        } elsif ($ctype =~ m/Cr.+ateur/ || $ctype =~ m/Auteur/ || $ctype =~ m/Sc.+nariste/ || $ctype =~ m/Sc.+nario/ || $ctype =~ m/Dialogue/) {
+          push @{$prog{credits}{writer}}, $cname;
         } else {
-          push @{$prog{credits}{guest}}, $cname;
+          if ($roleid eq "1") {
+            push @{$prog{credits}{actor}}, $cname;
+          } elsif ($roleid eq "2" || $roleid eq "12") {
+            push @{$prog{credits}{director}}, $cname;
+          } elsif ($roleid eq "3") {
+            push @{$prog{credits}{writer}}, $cname;
+          } elsif ($roleid eq "4") {
+            push @{$prog{credits}{composer}}, $cname;
+          } else {
+            push @{$prog{credits}{guest}}, $cname;
+          }
         }
       }
     }
@@ -1215,6 +1219,7 @@ sub process_channel_grid_page( $$$$$ ) {
     #debug_print("genre  : ".$genretext." - ".$subgenre."\n");
     #debug_print("description  : ".$description."\n");
     #debug_print("genre        : ".$genretext."\n");
+    #debug_print(Dumper(%prog));
 
     $writer->write_programme(\%prog);
 
