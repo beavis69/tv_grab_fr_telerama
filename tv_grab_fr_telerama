@@ -96,6 +96,8 @@ B<--no_cryptedcplus> Cache les programmes crypté de Canal+.
 
 B<--no_cryptedpprem> Cache les programmes crypté de Paris Première.
 
+B<--no_htmltags> Enlève les tags html de la description.
+
 =head1 SEE ALSO
 
 L<xmltv(5)>
@@ -235,6 +237,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 1.32 Utilise le role_id pour les credits si aucun libellé ne correspond.
 
 1.33 Corrige un crash lorsque telerama renvoi un acteur sans nom
+
+1.44 Ajout d'une option --no_htmltags pour enlever les tags html de la description
 =cut
 
 
@@ -247,7 +251,7 @@ use XMLTV::Usage <<END
     [--ch_prefix prefix] [--ch_postfix postfix] [--delay N]
     [--no_episodedesc] [--no_aggregatecat]
     [--show_url] [--save_json]
-    [--no_cryptedcplus] [--no_cryptedpprem]
+    [--no_cryptedcplus] [--no_cryptedpprem] [--no_htmltags]
     prefix, postfix : strings, "" for null string
     To show capabilities : $0 --capabilities
     To show version      : $0 --version
@@ -257,7 +261,7 @@ END
 
 use warnings;
 use strict;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.33 2018/11/08 22:21:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.34 2018/11/08 22:21:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -327,7 +331,8 @@ XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux');
 ##patch: tigerlol: correction des chevauchements d'horaire
 my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,
     $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path,
-    $no_episodedesc, $no_aggregatecat, $show_url, $save_json, $no_cryptedcplus, $no_cryptedpprem );
+    $no_episodedesc, $no_aggregatecat, $show_url, $save_json, $no_cryptedcplus, $no_cryptedpprem,
+    $no_htmltags );
 ##/patch
 
 # debug
@@ -359,6 +364,7 @@ GetOptions('days=i'     => \$opt_days,
            'save_json' => \$save_json,
            'no_cryptedcplus' => \$no_cryptedcplus,
            'no_cryptedpprem' => \$no_cryptedpprem,
+           'no_htmltags' => \$no_htmltags,
            ##Gestion des channels non declares dans les listes "officielles"
            'configure-more-channels' => \$opt_morechannels,
            'delay=i' => \$Delay
@@ -1192,6 +1198,10 @@ sub process_channel_grid_page( $$$$$ ) {
         $description = $description." - Critique : ".$critic;
       }
       $description =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F//d;
+
+      if ( $no_htmltags ) {
+          $description =~ s/<(\/|)\w+>//g;
+      }
       push @{$prog{desc}}, [$description, $LANG ];
     }
 
