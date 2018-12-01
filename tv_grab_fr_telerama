@@ -285,7 +285,7 @@ use POSIX;
 use Encode;
 #use Encode::Detect;
 use JSON;
-use Data::Dumper;
+#use Data::Dumper;
 use Date::Parse;
 use Digest::HMAC_SHA1 qw(hmac_sha1_hex);
 
@@ -1053,31 +1053,30 @@ sub process_channel_grid_page( $$$$$ ) {
       my $ctype = $people->{'libelle'};
       my $roleid = $people->{'id_role'};
       my $cname = $people->{'nom'};
-      if ($cname) {
-        $cname = "$people->{'prenom'} $cname" if ($people->{'prenom'});
-        $cname = $cname." (".$people->{'role'}.")" if ($people->{'role'});
-        if ($ctype =~ m/Acteur/ || $ctype =~ m/Interpr.+te/ ) {
+      $cname = "$people->{'prenom'} $cname" if ($people->{'prenom'});
+      $cname = $cname." (".$people->{'role'}.")" if ($people->{'role'});
+      next unless ($cname);
+      if ($ctype =~ m/Acteur/ || $ctype =~ m/Interpr.+te/ ) {
+        push @{$prog{credits}{actor}}, $cname;
+      } elsif ($ctype =~ m/R.+alisateur/ || $ctype =~ m/Metteur en Sc.+ne/) {
+        push @{$prog{credits}{director}}, $cname;
+      } elsif ($ctype =~ m/Pr.+sentateur/ || $ctype =~ m/pr.+sentateur/) {
+        push @{$prog{credits}{presenter}}, $cname;
+      } elsif ($ctype =~ m/Musique/) {
+        push @{$prog{credits}{composer}}, $cname;
+      } elsif ($ctype =~ m/Cr.+ateur/ || $ctype =~ m/Auteur/ || $ctype =~ m/Sc.+nariste/ || $ctype =~ m/Sc.+nario/ || $ctype =~ m/Dialogue/) {
+        push @{$prog{credits}{writer}}, $cname;
+      } else {
+        if ($roleid eq "1") {
           push @{$prog{credits}{actor}}, $cname;
-        } elsif ($ctype =~ m/R.+alisateur/ || $ctype =~ m/Metteur en Sc.+ne/) {
+        } elsif ($roleid eq "2" || $roleid eq "12") {
           push @{$prog{credits}{director}}, $cname;
-        } elsif ($ctype =~ m/Pr.+sentateur/ || $ctype =~ m/pr.+sentateur/) {
-          push @{$prog{credits}{presenter}}, $cname;
-        } elsif ($ctype =~ m/Musique/) {
-          push @{$prog{credits}{composer}}, $cname;
-        } elsif ($ctype =~ m/Cr.+ateur/ || $ctype =~ m/Auteur/ || $ctype =~ m/Sc.+nariste/ || $ctype =~ m/Sc.+nario/ || $ctype =~ m/Dialogue/) {
+        } elsif ($roleid eq "3") {
           push @{$prog{credits}{writer}}, $cname;
+        } elsif ($roleid eq "4") {
+          push @{$prog{credits}{composer}}, $cname;
         } else {
-          if ($roleid eq "1") {
-            push @{$prog{credits}{actor}}, $cname;
-          } elsif ($roleid eq "2" || $roleid eq "12") {
-            push @{$prog{credits}{director}}, $cname;
-          } elsif ($roleid eq "3") {
-            push @{$prog{credits}{writer}}, $cname;
-          } elsif ($roleid eq "4") {
-            push @{$prog{credits}{composer}}, $cname;
-          } else {
-            push @{$prog{credits}{guest}}, $cname;
-          }
+          push @{$prog{credits}{guest}}, $cname;
         }
       }
     }
