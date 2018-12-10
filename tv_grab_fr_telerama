@@ -471,7 +471,7 @@ sub get_channels( $ );
 sub return_other_channels( );
 sub build_other_channel_filename();
 sub get_more_channel_icon( $ );
-sub process_channel_grid_page( $$$$$ );
+sub process_channel_grid_page( $$$$$$ );
 sub debug_print( @ );
 sub get_page( $$ );
 
@@ -726,7 +726,7 @@ die if $mode ne 'grab';
 #***************************************************************************
 # Build the working list of channel name/channel id
 #***************************************************************************
-my (%channels, $chicon, $chid, $chname);
+my (%channels, $chicon, $chid, $chname, $chid_name);
 my $line_num = 1;
 foreach (@config_lines) {
   ++ $line_num;
@@ -738,7 +738,13 @@ foreach (@config_lines) {
     $chname = $2;
     $chicon = $3;
     $chname =~ s/\s*$//;
-    $channels{$line_num} = {'chid'=>$chid, 'name'=>$chname, 'icon'=>$chicon};
+    if($chid =~ /(\d+):(.*)/) {
+      $chid = $1;
+      $chid_name = $2;
+    } else {
+      $chid_name = '';
+    }
+    $channels{$line_num} = {'chid'=>$chid, 'name'=>$chname, 'icon'=>$chicon, 'chid_name'=>$chid_name};
   } else {
     warn "$config_file:$line_num: bad line $_\n";
   }
@@ -759,8 +765,14 @@ foreach $ind (sort { $a <=> $b } keys %channels) {
   my $i;
   my $dayoff;
   my $json_name = "";
+  my $chid_name = "";
 
-  $writer->write_channel({ id => $channel_prefix.$chid.$channel_postfix, 'display-name' => [[$channels{$ind}{name}]], 'icon' => [{src=>$channels{$ind}{icon}}]});
+  if($channels{$ind}{chid_name} ne '') {
+    $chid_name = $channels{$ind}{chid_name};
+  } else {
+    $chid_name = $channel_prefix.$chid.$channel_postfix;
+  }
+  $writer->write_channel({ id => $chid_name, 'display-name' => [[$channels{$ind}{name}]], 'icon' => [{src=>$channels{$ind}{icon}}]});
   if ( $opt_per_days ) {
     for ($i=$opt_offset; $i < $opt_offset+$opt_days; $i++ ) {
       #debug_print( "i: $i\n");
@@ -776,12 +788,12 @@ foreach $ind (sort { $a <=> $b } keys %channels) {
         # debug_print($json_name."\n");
       }
 
-      push @to_get, [ $url, $chid, $i, $json_name ];
+      push @to_get, [ $url, $chid, $i, $json_name, $chid_name ];
     }
   } else {
     foreach (@offsets) {
       #$url = $GRID_BY_CHANNEL . "$chid&h=$_";
-      push @to_get, [ $url, $chid, $_ ];
+      push @to_get, [ $url, $chid, $_, $chid_name ];
     }
   }
 }
@@ -791,8 +803,8 @@ my $bar = new XMLTV::ProgressBar('getting listings', scalar @to_get)  if not $op
 Date_Init('SetDate=now,UTC');
 
 foreach (@to_get) {
-  my ($url, $chid, $slot, $jsname) = @$_;
-  process_channel_grid_page($writer, $chid, $url, $slot, $jsname);
+  my ($url, $chid, $slot, $jsname, $chid_name) = @$_;
+  process_channel_grid_page($writer, $chid, $url, $slot, $jsname, $chid_name);
   update $bar if not $opt_quiet;
 }
 
@@ -941,8 +953,8 @@ sub get_page_json( $$ ) {
   return $json_hash;
 }
 
-sub process_channel_grid_page( $$$$$ ) {
-  my ($writer, $chid, $url, $slot, $jsname) = @_;
+sub process_channel_grid_page( $$$$$$ ) {
+  my ($writer, $chid, $url, $slot, $jsname, $chid_name) = @_;
 
   if (!@genres) {
     get_channels("categories.json");
@@ -995,7 +1007,7 @@ sub process_channel_grid_page( $$$$$ ) {
 
     $startdate = utc_offset( $startdate, "+0100");
     $enddate  = utc_offset( $enddate , "+0100");
-    my %prog = (channel  => $channel_prefix.$chid.$channel_postfix,
+    my %prog = (channel  => $chid_name,
                 title       => [ [ $line->{'titre'} ] ], # lang unknown
                 start       => $startdate,
                 stop         => $enddate
