@@ -263,6 +263,8 @@ END
 
 use warnings;
 use strict;
+
+use utf8;
 use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.35 2018/11/08 22:21:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
@@ -537,7 +539,7 @@ sub trim {
 #***************************************************************************
 if ($mode eq 'configure') {
   XMLTV::Config_file::check_no_overwrite($config_file);
-  open(CONF, ">$config_file") or die "Cannot write to $config_file: $!";
+  open(CONF, ">$config_file",'>:utf8') or die "Cannot write to $config_file: $!";
 
   #my $bar = new XMLTV::ProgressBar('getting channel lists', scalar grep { $_ } @gtwant) if not $opt_quiet;
   my %channels_for;
@@ -665,7 +667,7 @@ if ($mode eq 'grab') {
 #***************************************************************************
 my %w_args;
 if (defined $opt_output) {
-  my $fh = new IO::File(">$opt_output");
+  my $fh = new IO::File("$opt_output",'>:utf8');
   die "cannot write to $opt_output: $!" if not defined $fh;
   $w_args{OUTPUT} = $fh;
 }
@@ -708,7 +710,6 @@ if ($mode eq 'list-channels') {
     my $ch_xid = $channel_prefix.$ch_did.$channel_postfix;
     $writer->write_channel({ id => $ch_xid,
                              'display-name' => [ [ $channels{$ch_did}{name} ] ],
-                             #                                                                               'icon' => [{src=>$ROOT_URL.$channels{$ch_did}{icon}}] })
                              'icon' => [{src=> $channels{$ch_did}{icon} }] })
       unless $seen{$ch_xid}++;
   }
@@ -735,7 +736,7 @@ foreach (@config_lines) {
   # Here we store the Channel name with the ID in the config file, as the XMLTV id = Website ID
   if (/^channel:?\s+(\S+)\s+([^\#]+);([^\#]+)/) {
     $chid = $1;
-    $chname = $2;
+    $chname = decode('UTF-8',$2);
     $chicon = $3;
     $chname =~ s/\s*$//;
     if($chid =~ /(\d+):(.*)/) {
