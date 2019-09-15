@@ -670,7 +670,7 @@ if (defined $opt_output) {
   $w_args{OUTPUT} = $fh;
 }
 
-$w_args{ENCODING} = 'utf-8';
+$w_args{encoding} = 'UTF-8';
 #$w_args{days} = $opt_days;
 #$w_args{offset} = $opt_offset;
 #$w_args{cutoff} = "000000";
@@ -967,11 +967,38 @@ sub process_channel_grid_page( $$$$$$ ) {
   }
 
   #print "Getting URL : ".$url."\n";
-  my @lines = @{ $json_hash->{'donnees'} };
 
+  # flag overlapping
+  # check all, starting at end
+  my $nb = scalar @{ $json_hash->{'donnees'} };
+  my $start = 0;
+  $json_hash->{'donnees'}[$nb-1]{'overlap'} = 0;
+  for (my $i=$nb-1;$i>=1;$i--) {
+    my $stop_prev = $json_hash->{'donnees'}[$i-1]{'horaire'}{'fin'};
+    $stop_prev  =~ tr/:\$\ -//d;
+    if($json_hash->{'donnees'}[$i]{'overlap'} != 1) {
+      $start = $json_hash->{'donnees'}[$i]{'horaire'}{'debut'};
+      $start =~ tr/:\$\ -//d;
+    }
+    if($stop_prev > $start) {
+      $json_hash->{'donnees'}[$i-1]{'overlap'} = 1;
+    } else {
+      $json_hash->{'donnees'}[$i-1]{'overlap'} = 0;
+    }
+  }
+  # if last programme start >= 06:00:00 flag it
+  # to avoid duplicate between day and day+1
+  if($json_hash->{'donnees'}[$nb-1]{'horaire'}{'debut'} =~ m/(\d+):\d+:\d+$/) {
+    if( $1 > 6) { $json_hash->{'donnees'}[$nb-1]{'overlap'} = 1; }
+  }
+
+  my @lines = @{ $json_hash->{'donnees'} };
   foreach my $line ( @lines ) {
     # debug_print "Found line : " . $line . "\n";
     # print STDERR Dumper($line);
+
+    # skip overlaping and duplicate
+    if($line->{'overlap'}) { next;}
 
     $chid = $line->{'id_chaine'};
 
@@ -1096,25 +1123,13 @@ sub process_channel_grid_page( $$$$$$ ) {
     }
     $prog{'date'} = $line->{'annee_realisation'} if ($line->{'annee_realisation'});
     $prog{country} = [[$line->{'libelle_nationalite'}]] if ($line->{'libelle_nationalite'});
-    if ($line->{'flags'}{'est_ar16x9'}) {
-      $prog{video}{aspect} = "16:9";
-    } elsif ($line->{'flags'}{'est_ar4x3'}) {
-      $prog{video}{aspect} = "4:3";
-    }
     $prog{'audio'}{stereo} = "bilingual" if ($line->{'flags'}{'est_vm'});
     #$prog{title_orig} = $line->{'titre_original'} if ($line->{'titre_original'});
 
     $crypted = 0 if ($line->{'flags'}{'est_clair'});
     $prog{subtitles} = [ { type => 'onscreen', language => ['fr'] } ] if ($line->{'flags'}{'est_vost'});
-    $prog{video}{quality} = "HDTV" if ($line->{'flags'}{'est_hd'});
     $prog{premiere} = [] if ($line->{'flags'}{'est_inedit'});
     $prog{'previously-shown'} = {} if ($line->{'flags'}{'est_redif'});
-    if ($line->{'flags'}{'est_stereo'}) {
-      $prog{'audio'}{stereo} = "stereo";
-    } elsif ($line->{'flags'}{'est_dolby'}) {
-      $prog{'audio'}{stereo} = "dolby";
-    }
-    $prog{showview} = $line->{'showview'};
 
     # skip crypted shows for Canal+ or Paris Premiere
     if ( ($chname =~ m/Canal+/) && ($crypted == 1) ) {
