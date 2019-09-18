@@ -970,11 +970,8 @@ sub process_channel_grid_page( $$$$$$ ) {
   }
 
   my $json_hash = get_page_json( $url, $jsname );
-  if (!$json_hash->{'status'} || $json_hash->{'status'} != 200) {
-    print STDERR "Status différent de 200, essai de nouveau";
-    $json_hash = get_page_json( $url, $jsname );
-  }
-
+  # no data ?
+  if(!defined $json_hash->{'donnees'}) { return 0; }
   #print "Getting URL : ".$url."\n";
   #print Dumper($json_hash->{pagination});
 
@@ -1291,7 +1288,6 @@ sub get_page( $$ ) {
   }
 
   my $r = $ua->get($url);
-
   # Then start the delay from this time on the next fetch - so we
   # make the gap _between_ requests rather than from the start of
   # one request to the start of the next.  This punishes modem users
@@ -1301,22 +1297,18 @@ sub get_page( $$ ) {
 
   $last_get_time = time();
 
-  if ($r->is_error) {
-    # In case of error try at least one more time.
+  if ($r->is_error && $r->code != 404) {
+    # In case of error try at least one more time if its not a 404
+    # 404 are normal when there is no programme
     # Skip the channel if it fails again
-    #
-    #die "could not fetch $url, error: " . $r->status_line . ", aborting\n" if $FailOnError;
     $errors{$url} = $r->status_line;
     print STDERR "Erreur ".$errors{$url}." en récupérant ".$url."\n";
-
-    sleep 3;
-
+    sleep(3);
     my $r = $ua->get($url);
-    if ($r->is_error) {
+    if ($r->is_error && $r->code != 404) {
       print STDERR "Seconde erreur ".$errors{$url}." en récupérant ".$url."\n";
       return undef;
     } else {
-
       if ($save_json) {
         # Création du fichier 'fichier.txt'
         open (JSFIC, ">$jsname") || die ("Vous ne pouvez pas créer le fichier \"$jsname\"");
@@ -1324,7 +1316,6 @@ sub get_page( $$ ) {
         print JSFIC $r->content;
         close (JSFIC);
       }
-
       return $r->content;
     }
   } else {
@@ -1338,5 +1329,4 @@ sub get_page( $$ ) {
     }
     return $r->content;
   }
-
 }
