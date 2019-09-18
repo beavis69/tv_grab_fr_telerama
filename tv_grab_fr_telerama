@@ -289,9 +289,20 @@ use POSIX;
 use Encode;
 #use Encode::Detect;
 use JSON;
-#use Data::Dumper;
+use Data::Dumper;
 use Date::Parse;
 use Digest::HMAC_SHA1 qw(hmac_sha1_hex);
+use open ':std', ':encoding(UTF-8)';
+
+# subs
+sub get_channels( $ );
+sub return_other_channels( );
+sub build_other_channel_filename();
+sub get_more_channel_icon( $ );
+sub process_channel_grid_all_pages( $$$$ );
+sub process_channel_grid_page( $$$$$$ );
+sub debug_print( @ );
+sub get_page( $$ );
 
 #***************************************************************************
 # Main declarations
@@ -348,7 +359,7 @@ $opt_per_weeks = 0;
 $opt_quiet  = 0;
 # The website is able to store at least 11 days from now
 my $default_opt_days = 11;
-$opt_output = '-';              # standard output
+
 GetOptions('days=i'     => \$opt_days,
            'help'         => \$opt_help,
            'output=s'  => \$opt_output,
@@ -469,13 +480,6 @@ if (-e "./logo-path.txt") {
 #***************************************************************************
 # Sub sections
 #***************************************************************************
-sub get_channels( $ );
-sub return_other_channels( );
-sub build_other_channel_filename();
-sub get_more_channel_icon( $ );
-sub process_channel_grid_page( $$$$$$ );
-sub debug_print( @ );
-sub get_page( $$ );
 
 sub mkjsonname($$) {
   my ($u, %p) = ($_[0], %{$_[1]});
@@ -776,25 +780,11 @@ foreach $ind (sort { $a <=> $b } keys %channels) {
   $writer->write_channel({ id => $chid_name, 'display-name' => [[$channels{$ind}{name}]], 'icon' => [{src=>$channels{$ind}{icon}}]});
   if ( $opt_per_days ) {
     for ($i=$opt_offset; $i < $opt_offset+$opt_days; $i++ ) {
-      #debug_print( "i: $i\n");
-      $dayoff = strftime("%Y-%m-%d", gmtime(time() + 3600 * 24 * $i));
-      #debug_print( "dayoff  : " . gmtime(time() + 3600 * 24 * $i) ."\n");
-
-      $url = mkurl($CHANNEL_GRID_PAGE, { 'dates' => "$dayoff", 'id_chaines' => "$chid", 'nb_par_page' => "100" });
-      if ($show_url) {
-        print STDERR $url."\n";
-      }
-      if ($save_json) {
-        $json_name = mkjsonname("", { 'dates' => "$dayoff", 'id_chaines' => "$chid" });
-        # debug_print($json_name."\n");
-      }
-
-      push @to_get, [ $url, $chid, $i, $json_name, $chid_name ];
+      push @to_get, [ $chid, $i, $chid_name ];
     }
   } else {
     foreach (@offsets) {
-      #$url = $GRID_BY_CHANNEL . "$chid&h=$_";
-      push @to_get, [ $url, $chid, $_, $chid_name ];
+      push @to_get, [ $chid, $_, $chid_name ];
     }
   }
 }
@@ -804,8 +794,8 @@ my $bar = new XMLTV::ProgressBar('getting listings', scalar @to_get)  if not $op
 Date_Init('SetDate=now,UTC');
 
 foreach (@to_get) {
-  my ($url, $chid, $slot, $jsname, $chid_name) = @$_;
-  process_channel_grid_page($writer, $chid, $url, $slot, $jsname, $chid_name);
+  my ($chid, $offset, $chid_name) = @$_;
+  process_channel_grid_all_pages($writer, $chid, $offset, $chid_name);
   update $bar if not $opt_quiet;
 }
 
@@ -954,6 +944,24 @@ sub get_page_json( $$ ) {
   return $json_hash;
 }
 
+sub process_channel_grid_all_pages ( $$$$ ) {
+  # some channels need more than 1 page
+  # ex : channel 483:BabyTV.fr Baby TV;http://television.telerama.fr/sites/tr_master/files/sheet_media/tv/500x500/483.png
+  # needs 4 pages ( ~ 340 programmes per day )
+  my ($writer, $chid, $offset, $chid_name) = @_;
+  my $dayoff = strftime("%Y-%m-%d", gmtime(time() + 3600 * 24 * $offset));
+  my ($jsname, $nb);
+  my $page = 1;
+  my $json_name;
+  do {
+    my $url = mkurl($CHANNEL_GRID_PAGE, { 'dates' => $dayoff, 'id_chaines' => $chid, 'page' => $page });
+    if ($show_url) { print STDERR $url."\n"; }
+    if ($save_json) { $jsname = mkjsonname("", { 'dates' => $dayoff, 'id_chaines' => $chid, 'page' => $page }); }
+    $nb = process_channel_grid_page($writer, $chid, $url, $offset, $jsname, $chid_name);
+    $page++;
+  } until ($nb < 100);
+}
+
 sub process_channel_grid_page( $$$$$$ ) {
   my ($writer, $chid, $url, $slot, $jsname, $chid_name) = @_;
 
@@ -968,6 +976,7 @@ sub process_channel_grid_page( $$$$$$ ) {
   }
 
   #print "Getting URL : ".$url."\n";
+  #print Dumper($json_hash->{pagination});
 
   # flag overlapping
   # check all, starting at end
@@ -1229,7 +1238,7 @@ sub process_channel_grid_page( $$$$$$ ) {
       $description =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F//d;
 
       if ( $no_htmltags ) {
-          $description =~ s/<(\/|)\w+>//g;
+          $description =~ s/<\/?[^>]+>//g;
       }
       push @{$prog{desc}}, [$description, $LANG ];
     }
@@ -1263,6 +1272,7 @@ sub process_channel_grid_page( $$$$$$ ) {
     $writer->write_programme(\%prog);
 
   }
+  return $nb;
 }
 
 # use an integrated sub to set a specific user agent
