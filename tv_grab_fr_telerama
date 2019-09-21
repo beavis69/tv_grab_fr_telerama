@@ -993,10 +993,10 @@ sub process_channel_grid_page( $$$$$$ ) {
       $json_hash->{'donnees'}[$i-1]{'overlap'} = 0;
     }
   }
-  # if last programme start >= 06:00:00 flag it
+  # if last programme ends >= 06:00:00 flag it
   # to avoid duplicate between day and day+1
-  if($json_hash->{'donnees'}[$nb-1]{'horaire'}{'debut'} =~ m/(\d+):\d+:\d+$/) {
-    if( $1 > 6) { $json_hash->{'donnees'}[$nb-1]{'overlap'} = 1; }
+  if($json_hash->{'donnees'}[$nb-1]{'horaire'}{'fin'} =~ m/(\d+):\d+:\d+$/) {
+    if( $1 >= 6) { $json_hash->{'donnees'}[$nb-1]{'overlap'} = 1; }
   }
 
   my @lines = @{ $json_hash->{'donnees'} };
