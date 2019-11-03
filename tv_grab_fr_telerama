@@ -543,7 +543,7 @@ sub trim {
 #***************************************************************************
 if ($mode eq 'configure') {
   XMLTV::Config_file::check_no_overwrite($config_file);
-  open(CONF, ">$config_file",'>:utf8') or die "Cannot write to $config_file: $!";
+  open(CONF, '>:utf8', $config_file) or die "Cannot write to $config_file: $!";
 
   #my $bar = new XMLTV::ProgressBar('getting channel lists', scalar grep { $_ } @gtwant) if not $opt_quiet;
   my %channels_for;
