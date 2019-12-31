@@ -390,16 +390,27 @@ my $CHANNEL_GRID;
 my $CHANNEL_GRID_PAGE;
 my $ROOT_URL;
 
+# use keep-alive to avoid useless ssl handshakes !
+my $ua = LWP::UserAgent->new(
+  requests_redirectable => ['GET', 'POST','HEAD'],
+  max_redirect => 3,
+  keep_alive => 1,
+  agent=>"okhttp/3.2.0"
+);
+$ua->env_proxy;
 
-my $ua = LWP::UserAgent->new;
+# do the same when using XMLTV::Get_nice
+$XMLTV::Get_nice::ua = LWP::UserAgent->new(
+  requests_redirectable => ['GET', 'POST','HEAD'],
+  max_redirect => 3,
+  keep_alive => 1,
+  agent=>"okhttp/3.2.0"
+);
+$XMLTV::Get_nice::ua->env_proxy;
 
 $CHANNEL_GRID = '/v1/application/initialisation';
 $CHANNEL_GRID_PAGE = "/v1/programmes/telechargement";
 $ROOT_URL  = 'https://api.telerama.fr';
-$ua->agent("okhttp/3.2.0");
-
-$ua->env_proxy;
-
 
 #***************************************************************************
 # Options processing, warnings, checks and default parameters
