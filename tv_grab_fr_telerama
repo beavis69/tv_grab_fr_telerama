@@ -510,18 +510,13 @@ sub mkjsonname($$) {
 
 sub mkurl($$) {
   my ($u, %p) = ($_[0], %{$_[1]});
-  my $l;
 
   $p{'appareil'} = 'android_tablette';
 
-  foreach (sort keys %p) {
-    $l .= "$_$p{$_}";
-  }
+  my $params = join('&', sort map { $_.'='.$p{$_} } keys %p);
+  my $to_sign = $params =~ s/&|=//gr;
 
-  $p{'api_signature'} = hmac_sha1_hex("$u$l", 'Eufea9cuweuHeif');
-  $p{'api_cle'} = 'apitel-5304b49c90511';
-
-  return "$ROOT_URL$u?".join '&', map {"$_=$p{$_}"} keys %p;
+  return $ROOT_URL.$u.'?'.$params.'&api_cle=apitel-5304b49c90511&api_signature='.hmac_sha1_hex($u.$to_sign,'Eufea9cuweuHeif');
 }
 
 
