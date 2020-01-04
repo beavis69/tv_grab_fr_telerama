@@ -1143,6 +1143,7 @@ sub process_channel_grid_page( $$$$$$ ) {
     $prog{subtitles} = [ { type => 'onscreen', language => ['fr'] } ] if ($line->{'flags'}{'est_vost'});
     $prog{premiere} = [] if ($line->{'flags'}{'est_inedit'});
     $prog{'previously-shown'} = {} if ($line->{'flags'}{'est_redif'});
+    $prog{'new'} = {} if ($line->{'flags'}{'est_direct'});
 
     # skip crypted shows for Canal+ or Paris Premiere
     if ( ($chname =~ m/Canal+/) && ($crypted == 1) ) {
