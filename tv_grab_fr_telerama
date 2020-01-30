@@ -960,9 +960,9 @@ sub process_channel_grid_all_pages ( $$$$ ) {
   my $page = 1;
   my $json_name;
   do {
-    my $url = mkurl($CHANNEL_GRID_PAGE, { 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => 3200 });
+    my $url = mkurl($CHANNEL_GRID_PAGE, { 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => 3200, 'page' => $page });
     if ($show_url) { print STDERR $url."\n"; }
-    if ($save_json) { $jsname = mkjsonname("", { 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => 3200 }); }
+    if ($save_json) { $jsname = mkjsonname("", { 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => 3200, 'page' => $page }); }
     $nb = process_channel_grid_page($writer, $chid, $url, $offset, $jsname, $chid_name);
     $page++;
   } until ($nb < 100);
