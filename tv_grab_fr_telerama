@@ -409,7 +409,7 @@ $XMLTV::Get_nice::ua = LWP::UserAgent->new(
 $XMLTV::Get_nice::ua->env_proxy;
 
 $CHANNEL_GRID = '/v1/application/initialisation';
-$CHANNEL_GRID_PAGE = "/v1/programmes/telechargement";
+$CHANNEL_GRID_PAGE = "/v1/programmes/grille";
 $ROOT_URL  = 'https://api.telerama.fr';
 
 #***************************************************************************
@@ -960,9 +960,9 @@ sub process_channel_grid_all_pages ( $$$$ ) {
   my $page = 1;
   my $json_name;
   do {
-    my $url = mkurl($CHANNEL_GRID_PAGE, { 'dates' => $dayoff, 'id_chaines' => $chid, 'page' => $page });
+    my $url = mkurl($CHANNEL_GRID_PAGE, { 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => 3200 });
     if ($show_url) { print STDERR $url."\n"; }
-    if ($save_json) { $jsname = mkjsonname("", { 'dates' => $dayoff, 'id_chaines' => $chid, 'page' => $page }); }
+    if ($save_json) { $jsname = mkjsonname("", { 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => 3200 }); }
     $nb = process_channel_grid_page($writer, $chid, $url, $offset, $jsname, $chid_name);
     $page++;
   } until ($nb < 100);
@@ -1028,10 +1028,10 @@ sub process_channel_grid_page( $$$$$$ ) {
     # debug_print("possede_notule : ".$line->{'possede_notule'}."\n");
 
     if ($line->{'possede_critique'} == 1) {
-      $critic = trim($line->{'critique'});
+      $critic = trim($line->{'critique'}) if ($line->{'critique'}) ;
       # debug_print("critique : ".$critic."\n");
     } elsif ($line->{'possede_notule'} == 1) {
-      $critic = trim($line->{'notule'});
+      $critic = trim($line->{'notule'}) if ($line->{'notule'}) ;
       # debug_print("notule : ".$critic."\n");
     }
 
