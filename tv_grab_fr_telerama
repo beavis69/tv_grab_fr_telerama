@@ -241,6 +241,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 1.34 Ajout d'une option --no_htmltags pour enlever les tags html de la description
 
 1.35 Cosmetic and remove debug dependency
+
+1.36 Replace telechargement api with grille
 =cut
 
 
@@ -265,7 +267,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.35 2018/11/08 22:21:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.36 2020/02/01 11:05:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
