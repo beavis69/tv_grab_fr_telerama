@@ -253,6 +253,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
      Correction du xml casting (le rôle n'est plus entre parenthèse mais un attribut role pour respecter la dtd xmltv)
      Utilisation de Memoize
      Utilisation de XMLTV:Get_nice qui gère déja $Delay
+
+1.38 Optimisation casting pas d'appel d'api suivant le subgenre (animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)
 =cut
 
 
@@ -277,7 +279,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.36 2020/02/01 11:05:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.38 2020/02/09 15:15:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -1127,9 +1129,8 @@ sub process_channel_grid_page( $$$$$$ ) {
       }
     }
 
-    
     # if casting is enable, we need another api call
-    if($opt_casting && ($genretext eq 'Film' || $genretext eq 'Série' || $genretext eq 'Feuilleton' || $genretext eq 'Téléfilm')) {
+    if($opt_casting && (!$subgenre || $subgenre !~ /(animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)$/i) && ($genretext eq 'Film' || $genretext eq 'Série' || $genretext eq 'Feuilleton' || $genretext eq 'Téléfilm')) {
      my $jsname_programme = '';
      my $url_programme = mkurl($CHANNEL_PROGRAMME_PAGE.$line->{'id_programme'}, {} );
      if ($show_url) { print STDERR $url_programme."\n"; }
@@ -1137,6 +1138,7 @@ sub process_channel_grid_page( $$$$$$ ) {
       my $json_hash_programme = get_page_json( $url_programme, $jsname_programme );
       #print Dumper($json_hash_programme->{'donnees'}[0]->{intervenants})."\n";
       my @cast = @{ $json_hash_programme->{'donnees'}[0]->{intervenants} } if ($json_hash_programme->{'donnees'} && $json_hash_programme->{'donnees'}[0]->{intervenants} );
+      #if(scalar(@cast) == 0) { print $genretext." ".$subgenre."\n"; }
       foreach my $people (@cast) {
         my $ctype = $people->{'libelle'};
         my $roleid = $people->{'id_role'};
