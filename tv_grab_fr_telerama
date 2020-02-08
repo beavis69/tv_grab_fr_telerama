@@ -19,6 +19,7 @@ tv_grab_fr_telerama - Grab TV listings for France.
         [--no_episodedesc] [--no_aggregatecat]
         [--show_url] [--save_json]
         [--no_cryptedcplus] [--no_cryptedpprem]
+        [--casting]
  To show capabilities:
    tv_grab_fr --capabilities
  To show version:
@@ -98,6 +99,8 @@ B<--no_cryptedpprem> Cache les programmes crypté de Paris Première.
 
 B<--no_htmltags> Enlève les tags html de la description.
 
+B<--casting> Pour récuperer le casting (nécéssite un appel api supplémentaire par programme)
+
 =head1 SEE ALSO
 
 L<xmltv(5)>
@@ -108,6 +111,7 @@ Zubrick, zubrick<at>number6<dot>ch
 Contributed by patrick-g  patrickg<dot>github<at>free<dot>fr
 Contributed by hamelg
 Contributed by fgouget
+Contributed by beavis69
 
 =head1 LICENSE
 
@@ -243,6 +247,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 1.35 Cosmetic and remove debug dependency
 
 1.36 Replace telechargement api with grille
+
+1.37 Utilisation de la nouvelle api_clef / signature
+     Ajout de l'option --casting pour récuperer le casting (nécéssite un appel d'api supplémentaire par programme)
+     Correction du xml casting (le rôle n'est plus entre parenthèse mais un attribut role pour respecter la dtd xmltv)
+     Utilisation de Memoize
+     Utilisation de XMLTV:Get_nice qui gère déja $Delay
 =cut
 
 
@@ -255,7 +265,7 @@ use XMLTV::Usage <<END
     [--ch_prefix prefix] [--ch_postfix postfix] [--delay N]
     [--no_episodedesc] [--no_aggregatecat]
     [--show_url] [--save_json]
-    [--no_cryptedcplus] [--no_cryptedpprem] [--no_htmltags]
+    [--no_cryptedcplus] [--no_cryptedpprem] [--no_htmltags] [--casting]
     prefix, postfix : strings, "" for null string
     To show capabilities : $0 --capabilities
     To show version      : $0 --version
@@ -283,6 +293,7 @@ use XMLTV::Config_file;
 use XMLTV::DST;
 use LWP;
 use XMLTV::Get_nice;
+use Memoize;
 use XMLTV::Memoize;
 use File::Temp;
 use LWP::Simple;
@@ -323,7 +334,7 @@ my @offsets = (2, 3, 4, 5, 6, 7);
 # my @days = (2, 3, 4, 5, 6, 7, 8, 9);
 
 my $Delay = 5;                  # in seconds
-my $FailOnError = 1;            # Fail on fetch error
+my $FailOnError = 0;
 
 my %errors = ();
 my $last_get_time;
@@ -343,13 +354,16 @@ my $DEBUG_CMD = 0;
 #***************************************************************************
 # Global variables allocation according to options
 #***************************************************************************
-XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux');
+# Get options, including undocumented --cache option.
+XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux') # cache on disk
+  or memoize('XMLTV::Get_nice::get_nice_aux')               # cache in memory
+  or die "cannot memoize 'XMLTV::Get_nice::get_nice_aux': $!";
 
 ##patch: tigerlol: correction des chevauchements d'horaire
 my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,
     $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path,
     $no_episodedesc, $no_aggregatecat, $show_url, $save_json, $no_cryptedcplus, $no_cryptedpprem,
-    $no_htmltags );
+    $no_htmltags,$opt_casting );
 ##/patch
 
 # debug
@@ -382,6 +396,7 @@ GetOptions('days=i'     => \$opt_days,
            'no_cryptedcplus' => \$no_cryptedcplus,
            'no_cryptedpprem' => \$no_cryptedpprem,
            'no_htmltags' => \$no_htmltags,
+           'casting' => \$opt_casting,
            ##Gestion des channels non declares dans les listes "officielles"
            'configure-more-channels' => \$opt_morechannels,
            'delay=i' => \$Delay
@@ -390,18 +405,10 @@ GetOptions('days=i'     => \$opt_days,
 
 my $CHANNEL_GRID;
 my $CHANNEL_GRID_PAGE;
+my $CHANNEL_PROGRAMME_PAGE;
 my $ROOT_URL;
 
 # use keep-alive to avoid useless ssl handshakes !
-my $ua = LWP::UserAgent->new(
-  requests_redirectable => ['GET', 'POST','HEAD'],
-  max_redirect => 3,
-  keep_alive => 1,
-  agent=>"okhttp/3.2.0"
-);
-$ua->env_proxy;
-
-# do the same when using XMLTV::Get_nice
 $XMLTV::Get_nice::ua = LWP::UserAgent->new(
   requests_redirectable => ['GET', 'POST','HEAD'],
   max_redirect => 3,
@@ -409,9 +416,12 @@ $XMLTV::Get_nice::ua = LWP::UserAgent->new(
   agent=>"okhttp/3.2.0"
 );
 $XMLTV::Get_nice::ua->env_proxy;
+$XMLTV::Get_nice::Delay = $Delay;
+$XMLTV::Get_nice::FailOnError = $FailOnError;
 
 $CHANNEL_GRID = '/v1/application/initialisation';
-$CHANNEL_GRID_PAGE = "/v1/programmes/grille";
+$CHANNEL_GRID_PAGE = '/v1/programmes/grille';
+$CHANNEL_PROGRAMME_PAGE = '/v1/programmes/';
 $ROOT_URL  = 'https://api.telerama.fr';
 
 #***************************************************************************
@@ -518,7 +528,7 @@ sub mkurl($$) {
   my $params = join('&', sort map { $_.'='.$p{$_} } keys %p);
   my $to_sign = $params =~ s/&|=//gr;
 
-  return $ROOT_URL.$u.'?'.$params.'&api_cle=apitel-5304b49c90511&api_signature='.hmac_sha1_hex($u.$to_sign,'Eufea9cuweuHeif');
+  return $ROOT_URL.$u.'?'.$params.'&api_cle=apitel-g4aatlgif6qzf&api_signature='.hmac_sha1_hex($u.$to_sign,'uIF59SZhfrfm5Gb');
 }
 
 
@@ -976,12 +986,9 @@ sub process_channel_grid_page( $$$$$$ ) {
   if (!@genres) {
     get_channels("categories.json");
   }
-
   my $json_hash = get_page_json( $url, $jsname );
   # no data ?
-  if(!defined $json_hash->{'donnees'}) { return 0; }
-  #print "Getting URL : ".$url."\n";
-  #print Dumper($json_hash->{pagination});
+  if(scalar @{$json_hash->{'donnees'}} eq 0) { return 0; }
 
   # flag overlapping
   # check all, starting at end
@@ -1025,7 +1032,6 @@ sub process_channel_grid_page( $$$$$$ ) {
     my $genre = $line->{'id_genre'} ? $line->{'id_genre'} : 0;
     my $genretext = $genre ? $genres[$genre] : "";
     my $critic = "";
-
     # debug_print("possede_critique : ".$line->{'possede_critique'}."\n");
     # debug_print("possede_notule : ".$line->{'possede_notule'}."\n");
 
@@ -1104,38 +1110,67 @@ sub process_channel_grid_page( $$$$$$ ) {
 
     $prog{'sub-title'} = [ [ $line->{'soustitre'} ] ] if ($line->{'soustitre'});
 
-    my @cast = @{ $line->{'intervenants'} } if ($line->{'intervenants'});
-    foreach my $people (@cast) {
-      my $ctype = $people->{'libelle'};
-      my $roleid = $people->{'id_role'};
-      my $cname = $people->{'nom'};
-      $cname = "$people->{'prenom'} $cname" if ($people->{'prenom'});
-      $cname = $cname." (".$people->{'role'}.")" if ($people->{'role'});
-      next unless ($cname);
-      if ($ctype =~ m/Acteur/ || $ctype =~ m/Interpr.+te/ ) {
-        push @{$prog{credits}{actor}}, $cname;
-      } elsif ($ctype =~ m/R.+alisateur/ || $ctype =~ m/Metteur en Sc.+ne/) {
-        push @{$prog{credits}{director}}, $cname;
-      } elsif ($ctype =~ m/Pr.+sentateur/ || $ctype =~ m/pr.+sentateur/) {
-        push @{$prog{credits}{presenter}}, $cname;
-      } elsif ($ctype =~ m/Musique/) {
-        push @{$prog{credits}{composer}}, $cname;
-      } elsif ($ctype =~ m/Cr.+ateur/ || $ctype =~ m/Auteur/ || $ctype =~ m/Sc.+nariste/ || $ctype =~ m/Sc.+nario/ || $ctype =~ m/Dialogue/) {
-        push @{$prog{credits}{writer}}, $cname;
-      } else {
-        if ($roleid eq "1") {
-          push @{$prog{credits}{actor}}, $cname;
-        } elsif ($roleid eq "2" || $roleid eq "12") {
+    $subgenre = lc($subgenre) if ($subgenre);
+    if (!$genretext && defined $line->{'url'}) {
+      if ($line->{'url'} =~ m%/documentaire/%) {
+        $genretext = "Documentaire";
+      } elsif ($line->{'url'} =~ m%/(emission-sportive|magazine-sportif)/%) {
+        $genretext = "Sport";
+      } elsif ($line->{'url'} =~ m%/films/%) {
+        $genretext = "Film";
+      } elsif ($line->{'url'} =~ m%/feuilleton/%) {
+        $genretext = "Feuilleton";
+      } elsif ($line->{'url'} =~ m%/serie/%) {
+        $genretext = "Série";
+      } elsif ($line->{'url'} =~ m%/telefilm/%) {
+        $genretext = "Téléfilm";
+      }
+    }
+
+    
+    # if casting is enable, we need another api call
+    if($opt_casting && ($genretext eq 'Film' || $genretext eq 'Série' || $genretext eq 'Feuilleton' || $genretext eq 'Téléfilm')) {
+     my $jsname_programme = '';
+     my $url_programme = mkurl($CHANNEL_PROGRAMME_PAGE.$line->{'id_programme'}, {} );
+     if ($show_url) { print STDERR $url_programme."\n"; }
+     if ($save_json) { $jsname_programme = mkjsonname("", { "id_programme" => $line->{'id_programme'}}); }
+      my $json_hash_programme = get_page_json( $url_programme, $jsname_programme );
+      #print Dumper($json_hash_programme->{'donnees'}[0]->{intervenants})."\n";
+      my @cast = @{ $json_hash_programme->{'donnees'}[0]->{intervenants} } if ($json_hash_programme->{'donnees'} && $json_hash_programme->{'donnees'}[0]->{intervenants} );
+      foreach my $people (@cast) {
+        my $ctype = $people->{'libelle'};
+        my $roleid = $people->{'id_role'};
+        my $cname = $people->{'nom'};
+        my $role;
+        $cname = "$people->{'prenom'} $cname" if ($people->{'prenom'});
+        $role = $people->{'role'} if ($people->{'role'});
+        next unless ($cname);
+        if ($ctype =~ m/Acteur/ || $ctype =~ m/Interpr.+te/ ) {
+          push @{$prog{credits}{actor}}, [$cname,$role];
+        } elsif ($ctype =~ m/R.+alisateur/ || $ctype =~ m/Metteur en Sc.+ne/) {
           push @{$prog{credits}{director}}, $cname;
-        } elsif ($roleid eq "3") {
-          push @{$prog{credits}{writer}}, $cname;
-        } elsif ($roleid eq "4") {
+        } elsif ($ctype =~ m/Pr.+sentateur/ || $ctype =~ m/pr.+sentateur/) {
+          push @{$prog{credits}{presenter}}, $cname;
+        } elsif ($ctype =~ m/Musique/) {
           push @{$prog{credits}{composer}}, $cname;
+        } elsif ($ctype =~ m/Cr.+ateur/ || $ctype =~ m/Auteur/ || $ctype =~ m/Sc.+nariste/ || $ctype =~ m/Sc.+nario/ || $ctype =~ m/Dialogue/) {
+          push @{$prog{credits}{writer}}, $cname;
         } else {
-          push @{$prog{credits}{guest}}, $cname;
+          if ($roleid eq "1") {
+            push @{$prog{credits}{actor}}, $cname;
+          } elsif ($roleid eq "2" || $roleid eq "12") {
+            push @{$prog{credits}{director}}, $cname;
+          } elsif ($roleid eq "3") {
+            push @{$prog{credits}{writer}}, $cname;
+          } elsif ($roleid eq "4") {
+            push @{$prog{credits}{composer}}, $cname;
+          } else {
+            push @{$prog{credits}{guest}}, $cname;
+          }
         }
       }
     }
+
     $prog{'date'} = $line->{'annee_realisation'} if ($line->{'annee_realisation'});
     $prog{country} = [[$line->{'libelle_nationalite'}]] if ($line->{'libelle_nationalite'});
     $prog{'audio'}{stereo} = "bilingual" if ($line->{'flags'}{'est_vm'});
@@ -1191,24 +1226,6 @@ sub process_channel_grid_page( $$$$$$ ) {
 
     if ($line->{'vignettes'}{'grande'}) {
       push @{$prog{icon}}, {src => $line->{'vignettes'}{'grande'}};
-    }
-
-
-    $subgenre = lc($subgenre) if ($subgenre);
-    if (!$genretext && defined $line->{'url'}) {
-      if ($line->{'url'} =~ m%/documentaire/%) {
-        $genretext = "Documentaire";
-      } elsif ($line->{'url'} =~ m%/(emission-sportive|magazine-sportif)/%) {
-        $genretext = "Sport";
-      } elsif ($line->{'url'} =~ m%/films/%) {
-        $genretext = "Film";
-      } elsif ($line->{'url'} =~ m%/feuilleton/%) {
-        $genretext = "Feuilleton";
-      } elsif ($line->{'url'} =~ m%/serie/%) {
-        $genretext = "Série";
-      } elsif ($line->{'url'} =~ m%/telefilm/%) {
-        $genretext = "Téléfilm";
-      }
     }
 
     if ($no_aggregatecat) {
@@ -1288,56 +1305,13 @@ sub get_page( $$ ) {
   my $url = shift;
   my $jsname = shift ;
 
-  if (defined $last_get_time) {
-    # A page has already been retrieved recently.  See if we need
-    # to sleep for a while before getting the next page - being
-    # nice to the server.
-
-    my $next_get_time = $last_get_time + (rand $Delay);
-    my $sleep_time = $next_get_time - time();
-    sleep $sleep_time if $sleep_time > 0;
+  my $content = get_nice($url);
+  if ($save_json) {
+    # Création du fichier 'fichier.txt'
+    open (JSFIC, ">$jsname") || die ("Vous ne pouvez pas créer le fichier \"$jsname\"");
+    # On écrit dans le fichier...
+    print JSFIC $content;
+    close (JSFIC);
   }
-
-  my $r = $ua->get($url);
-  # Then start the delay from this time on the next fetch - so we
-  # make the gap _between_ requests rather than from the start of
-  # one request to the start of the next.  This punishes modem users
-  # whose individual requests take longer, but it also punishes
-  # downloads that take a long time for other reasons (large file,
-  # slow server) so it's about right.
-
-  $last_get_time = time();
-
-  if ($r->is_error && $r->code != 404) {
-    # In case of error try at least one more time if its not a 404
-    # 404 are normal when there is no programme
-    # Skip the channel if it fails again
-    $errors{$url} = $r->status_line;
-    print STDERR "Erreur ".$errors{$url}." en récupérant ".$url."\n";
-    sleep(3);
-    my $r = $ua->get($url);
-    if ($r->is_error && $r->code != 404) {
-      print STDERR "Seconde erreur ".$errors{$url}." en récupérant ".$url."\n";
-      return undef;
-    } else {
-      if ($save_json) {
-        # Création du fichier 'fichier.txt'
-        open (JSFIC, ">$jsname") || die ("Vous ne pouvez pas créer le fichier \"$jsname\"");
-        # On écrit dans le fichier...
-        print JSFIC $r->content;
-        close (JSFIC);
-      }
-      return $r->content;
-    }
-  } else {
-    # debug_print "Récupération de ".$url."\n";
-    if ($save_json) {
-      # Création du fichier 'fichier.txt'
-      open (JSFIC, ">$jsname") || die ("Vous ne pouvez pas créer le fichier \"$jsname\"");
-      # On écrit dans le fichier...
-      print JSFIC $r->content;
-      close (JSFIC);
-    }
-    return $r->content;
-  }
+  return $content
 }
