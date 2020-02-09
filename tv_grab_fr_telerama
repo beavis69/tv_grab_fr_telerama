@@ -261,6 +261,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 1.41 Gestion des erreurs de l'api (404 qd la chaine n'a pas de programme)
      Affichage d'un warning si --quiet n'est pas présent
      Correction bug nb/nb_par_page
+
+1.42 Fix params/page
+
 =cut
 
 use XMLTV::Usage <<END
@@ -284,7 +287,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.41 2020/02/09 15:15:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.42 2020/02/09 17:42:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -946,13 +949,12 @@ sub process_channel_grid_all_pages ( $$$$ ) {
   my $page = 1;
   # appli api trace use 3200 for nb_par_page
   my $nb_par_page = 3200;
-  my $json_name;
   do {
     my %params;
     if($page > 1) {
-      %params = ( 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => $nb_par_page );
-    } else {
       %params = ( 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => $nb_par_page, 'page' => $page );
+    } else {
+      %params = ( 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => $nb_par_page );
     }
     my $url = mkurl($CHANNEL_GRID_PAGE, \%params);
     if ($show_url) { print STDERR $url."\n"; }
