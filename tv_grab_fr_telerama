@@ -256,7 +256,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 1.38 Optimisation casting pas d'appel d'api suivant le subgenre (animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)
 
-1.39 Ajout du casting pour les pièces de théâtre
+1.40 Ajout du casting pour les pièces de théâtre
 =cut
 
 use XMLTV::Usage <<END
