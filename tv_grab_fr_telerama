@@ -255,9 +255,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
      Utilisation de XMLTV:Get_nice qui gère déja $Delay
 
 1.38 Optimisation casting pas d'appel d'api suivant le subgenre (animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)
-=cut
 
 1.39 Ajout du casting pour les pièces de théâtre
+=cut
 
 use XMLTV::Usage <<END
     $0: get French television listings in XMLTV format
