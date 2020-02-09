@@ -257,6 +257,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 1.38 Optimisation casting pas d'appel d'api suivant le subgenre (animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)
 
 1.40 Ajout du casting pour les pièces de théâtre
+
+1.41 Gestion des erreurs de l'api (404 qd la chaine n'a pas de programme)
+     Affichage d'un warning si --quiet n'est pas présent
+     Correction bug nb/nb_par_page
 =cut
 
 use XMLTV::Usage <<END
@@ -280,7 +284,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.40 2020/02/09 12:50:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.41 2020/02/09 15:15:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -316,17 +320,14 @@ sub return_other_channels( );
 sub build_other_channel_filename();
 sub get_more_channel_icon( $ );
 sub process_channel_grid_all_pages( $$$$ );
-sub process_channel_grid_page( $$$$$$ );
+sub process_channel_grid_page( $$$$$$$$ );
 sub debug_print( @ );
-sub get_page( $$ );
+sub get_page_json( $$ );
 
 #***************************************************************************
 # Main declarations
 #***************************************************************************
 my $LANG = "fr";
-
-# FIXME: Temporary avoid XML warnings (to be investigated)
-#no warnings;
 
 # Grid id defined by the website according to channel types (needed to build the URL)
 # my %GridType = (  "ALL" => "all");
@@ -337,7 +338,7 @@ my @offsets = (2, 3, 4, 5, 6, 7);
 # my @days = (2, 3, 4, 5, 6, 7, 8, 9);
 
 my $Delay = 5;                  # in seconds
-my $FailOnError = 0;
+my $FailOnError = 1;
 
 my %errors = ();
 my $last_get_time;
@@ -420,7 +421,8 @@ $XMLTV::Get_nice::ua = LWP::UserAgent->new(
 );
 $XMLTV::Get_nice::ua->env_proxy;
 $XMLTV::Get_nice::Delay = $Delay;
-$XMLTV::Get_nice::FailOnError = $FailOnError;
+# tell XMLTV::Get_nice, we handle error our self
+$XMLTV::Get_nice::FailOnError = 0;
 
 $CHANNEL_GRID = '/v1/application/initialisation';
 $CHANNEL_GRID_PAGE = '/v1/programmes/grille';
@@ -907,10 +909,8 @@ sub get_channels( $ ) {
     print STDERR $my_url."\n";
   }
 
-  my $page = get_page($my_url, $jsname);
+  my $json_hash = get_page_json($my_url, $jsname);
 
-  #  debug_print($page);
-  my $json_hash = decode_json($page);
   my $chicon = "";
   my @lines = @{ $json_hash->{'donnees'}{'chaines'} };
   foreach my $line ( @lines ) {
@@ -935,63 +935,47 @@ sub get_channels( $ ) {
     $genres[$genre->{'id'}] = $genre->{'libelle'};
   }
 
-  undef $page;
   return %channels;
-}
-
-
-sub get_page_json( $$ ) {
-
-  my $url = shift;
-  my $jsname = shift;
-
-  my $page = get_page($url, $jsname);
-  #$page =~ s/\\u0000//g;
-  #$page =~ s/\\u00ad//g;
-  #$page =~ s/\\u00bb//g;
-
-
-  # debug_print("Getting URL : ".$url."\n");
-  #$page  =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F//d;
-
-  my $json_hash;
-  eval {
-    $json_hash = JSON->new->utf8(1)->decode($page);
-  } or do {
-    $json_hash->{'donnees'} = [];
-  };
-  undef $page;
-
-  return $json_hash;
 }
 
 sub process_channel_grid_all_pages ( $$$$ ) {
   # some channels need more than 1 page
-  # ex : channel 483:BabyTV.fr Baby TV;http://television.telerama.fr/sites/tr_master/files/sheet_media/tv/500x500/483.png
-  # needs 4 pages ( ~ 340 programmes per day )
   my ($writer, $chid, $offset, $chid_name) = @_;
   my $dayoff = strftime("%Y-%m-%d", gmtime(time() + 3600 * 24 * $offset));
   my ($jsname, $nb);
   my $page = 1;
+  # appli api trace use 3200 for nb_par_page
+  my $nb_par_page = 3200;
   my $json_name;
   do {
-    my $url = mkurl($CHANNEL_GRID_PAGE, { 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => 3200, 'page' => $page });
+    my %params;
+    if($page > 1) {
+      %params = ( 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => $nb_par_page );
+    } else {
+      %params = ( 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => $nb_par_page, 'page' => $page );
+    }
+    my $url = mkurl($CHANNEL_GRID_PAGE, \%params);
     if ($show_url) { print STDERR $url."\n"; }
-    if ($save_json) { $jsname = mkjsonname("", { 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => 3200, 'page' => $page }); }
-    $nb = process_channel_grid_page($writer, $chid, $url, $offset, $jsname, $chid_name);
+    if ($save_json) { $jsname = mkjsonname("", \%params); }
+    $nb = process_channel_grid_page($writer, $chid, $url, $offset, $jsname, $chid_name, $dayoff, $page);
     $page++;
-  } until ($nb < 100);
+  } until ($nb < $nb_par_page);
 }
 
-sub process_channel_grid_page( $$$$$$ ) {
-  my ($writer, $chid, $url, $slot, $jsname, $chid_name) = @_;
+sub process_channel_grid_page ( $$$$$$$$ ) {
+  my ($writer, $chid, $url, $slot, $jsname, $chid_name, $dayoff, $page) = @_;
 
   if (!@genres) {
     get_channels("categories.json");
   }
   my $json_hash = get_page_json( $url, $jsname );
   # no data ?
-  if(scalar @{$json_hash->{'donnees'}} eq 0) { return 0; }
+  if(!defined($json_hash->{'donnees'})) {
+    if($page == 1) {
+      if(!$opt_quiet) { print STDERR "Aucun programme pour la chaîne $chid $chid_name le $dayoff\n"; }
+    }
+    return 0;
+  }
 
   # flag overlapping
   # check all, starting at end
@@ -1308,18 +1292,41 @@ sub process_channel_grid_page( $$$$$$ ) {
   return $nb;
 }
 
-# use an integrated sub to set a specific user agent
-sub get_page( $$ ) {
+# use XMLTV::get_nice
+# with our error_handling
+sub get_page_json( $$ ) {
   my $url = shift;
   my $jsname = shift ;
 
   my $content = get_nice($url);
+  my $json;
+
+  # error handling
+  my $Response = $XMLTV::Get_nice::Response;
+  # api returns a 404 with json content when there is no shows
+  if(!$content && $Response->code == 404) {
+    $content = $Response->content;
+  }
+
+  if(!$content) {
+    if($FailOnError) {
+      die ("Erreur ".$Response->status_line." $url");
+    } else {
+      $content = '{}';
+      warn ("Erreur ".$Response->status_line." $url");
+    }
+  }
+
   if ($save_json) {
-    # Création du fichier 'fichier.txt'
     open (JSFIC, ">$jsname") || die ("Vous ne pouvez pas créer le fichier \"$jsname\"");
-    # On écrit dans le fichier...
     print JSFIC $content;
     close (JSFIC);
   }
-  return $content
+
+  eval {
+    $json = JSON->new->utf8(1)->decode($content);
+  } or do {
+    die ("malformed json on $url : ".$Response->status_code."\n");
+  };
+  return $json;
 }
