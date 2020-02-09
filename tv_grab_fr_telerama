@@ -255,6 +255,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
      Utilisation de XMLTV:Get_nice qui gère déja $Delay
 
 1.38 Optimisation casting pas d'appel d'api suivant le subgenre (animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)
+
+1.39 Ajout du casting pour les pièces de théâtre
 =cut
 
 
@@ -279,7 +281,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.38 2020/02/09 15:15:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.39 2020/02/09 15:15:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -1128,9 +1130,11 @@ sub process_channel_grid_page( $$$$$$ ) {
         $genretext = "Téléfilm";
       }
     }
+	
+	$genretext = "Théâtre" if (!$genretext && $subgenre =~ /theater|théâtre/i);
 
     # if casting is enable, we need another api call
-    if($opt_casting && (!$subgenre || $subgenre !~ /(animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)$/i) && ($genretext eq 'Film' || $genretext eq 'Série' || $genretext eq 'Feuilleton' || $genretext eq 'Téléfilm')) {
+    if($opt_casting && (!$subgenre || $subgenre !~ /(animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)$/i) && ($genretext eq 'Film' || $genretext eq 'Série' || $genretext eq 'Feuilleton' || $genretext eq 'Téléfilm' || $genretext eq 'Théâtre')) {
      my $jsname_programme = '';
      my $url_programme = mkurl($CHANNEL_PROGRAMME_PAGE.$line->{'id_programme'}, {} );
      if ($show_url) { print STDERR $url_programme."\n"; }
