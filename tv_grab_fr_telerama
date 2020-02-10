@@ -580,7 +580,7 @@ if ($mode eq 'configure') {
   my %asked;
 
   # Ask about each channel (unless already asked).
-  my @chs = grep { not $asked{$_}++ } sort keys %channels;
+  my @chs = grep { not $asked{$_}++ } sort {$a <=> $b} keys %channels;
   my @names = map { $channels{$_}{name} } @chs;
   my @qs = map { "add channel $_?" } @names;
   my @want = ask_many_boolean(1, @qs);
