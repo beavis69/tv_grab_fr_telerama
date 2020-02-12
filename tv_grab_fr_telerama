@@ -420,8 +420,17 @@ $XMLTV::Get_nice::ua = LWP::UserAgent->new(
   requests_redirectable => ['GET', 'POST','HEAD'],
   max_redirect => 3,
   keep_alive => 1,
-  agent=>"okhttp/3.2.0"
+  agent=>"okhttp/3.12.3"
 );
+$XMLTV::Get_nice::ua->default_header(
+  'lmd-systemname'    => 'Android',
+  'lmd-systemversion' => '8.1.0',
+  'lmd-devicetype'    => 'tablet',
+  'lmd-devicemodel'   => 'Samsung Galaxy',
+  'lmd-bundleid'      => 'com.telerama.fr',
+  'lmd-appversion'    => '3.6.4',
+);
+
 $XMLTV::Get_nice::ua->env_proxy;
 $XMLTV::Get_nice::Delay = $Delay;
 # tell XMLTV::Get_nice, we handle error our self
@@ -790,7 +799,7 @@ my $script_duration = time();
 
 # The website stores channel information by hour area for a whole week !
 my $ind;
-foreach $ind (sort { $a <=> $b } keys %channels) {
+foreach $ind (sort { $channels{$a}{chid} <=> $channels{$b}{chid} } keys %channels) {
   my $chid = $channels{$ind}{chid};
   my $url;
   my $i;
@@ -905,9 +914,11 @@ sub get_channels( $ ) {
 
   my %channels;
 
+  # create random hash to mimic api trace
+  my $hash;
+  for(1..32) { $hash .= sprintf("%X", rand(16)); }
   # Get the current page
-
-  my $my_url = mkurl($CHANNEL_GRID, {});
+  my $my_url = mkurl($CHANNEL_GRID, {'hash'=>lc $hash});
   if ($show_url) {
     print STDERR $my_url."\n";
   }
@@ -950,12 +961,7 @@ sub process_channel_grid_all_pages ( $$$$ ) {
   # appli api trace use 3200 for nb_par_page
   my $nb_par_page = 3200;
   do {
-    my %params;
-    if($page > 1) {
-      %params = ( 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => $nb_par_page, 'page' => $page );
-    } else {
-      %params = ( 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => $nb_par_page );
-    }
+    my %params = ( 'date' => $dayoff, 'id_chaines' => $chid, 'nb_par_page' => $nb_par_page, 'page' => $page );
     my $url = mkurl($CHANNEL_GRID_PAGE, \%params);
     if ($show_url) { print STDERR $url."\n"; }
     if ($save_json) { $jsname = mkjsonname("", \%params); }
