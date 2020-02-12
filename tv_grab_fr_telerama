@@ -14,7 +14,7 @@ tv_grab_fr_telerama - Grab TV listings for France.
    tv_grab_fr --configure [--config-file FILE]
  To grab listings:
    tv_grab_fr [--config-file FILE] [--output FILE] [--days N]
-        [--offset N] [--quiet] [--perdays] [--perweeks]
+        [--offset N] [--quiet]
         [--ch_prefix prefix] [--ch_postfix postfix]
         [--no_episodedesc] [--no_aggregatecat]
         [--show_url] [--save_json]
@@ -322,8 +322,8 @@ sub get_channels( $ );
 sub return_other_channels( );
 sub build_other_channel_filename();
 sub get_more_channel_icon( $ );
-sub process_channel_grid_all_pages( $$$$ );
-sub process_channel_grid_page( $$$$$$$$ );
+sub process_channel_grid_all_pages( $$ );
+sub process_channel_grid_page( $$$$$ );
 sub debug_print( @ );
 sub get_page_json( $$ );
 
@@ -331,27 +331,12 @@ sub get_page_json( $$ );
 # Main declarations
 #***************************************************************************
 my $LANG = "fr";
-
-# Grid id defined by the website according to channel types (needed to build the URL)
-# my %GridType = (  "ALL" => "all");
-
-# Slot of hours according to the website (needed to build the URL)
-my @offsets = (2, 3, 4, 5, 6, 7);
-# Slot of days for day per day grabbing
-# my @days = (2, 3, 4, 5, 6, 7, 8, 9);
-
-my $Delay = 5;                  # in seconds
+# delay between api requests in seconds
+my $Delay = 5;
 my $FailOnError = 1;
 
 my %errors = ();
 my $last_get_time;
-
-# my $progexist;
-# my %prevprog;
-# my $prevtitle;
-# my $prevstart;
-# my $prevstop;
-
 my $channel_postfix = ".api.telerama.fr";
 my $channel_prefix = "C";
 
@@ -366,20 +351,18 @@ XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux') # cache on disk
   or memoize('XMLTV::Get_nice::get_nice_aux')               # cache in memory
   or die "cannot memoize 'XMLTV::Get_nice::get_nice_aux': $!";
 
-##patch: tigerlol: correction des chevauchements d'horaire
-my ($opt_days,  $opt_help,  $opt_output,  $opt_per_days, $opt_per_weeks, $opt_offset,  $opt_gui, $opt_quiet,
+my ($opt_days, $opt_help, $opt_output, $opt_offset, $opt_gui, $opt_quiet,
     $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path,
     $no_episodedesc, $no_aggregatecat, $show_url, $save_json, $no_cryptedcplus, $no_cryptedpprem,
-    $no_htmltags,$opt_casting );
-##/patch
+    $no_htmltags, $opt_casting );
 
 # debug
 if ($DEBUG_CMD) {
   print $0." | ".join(" | ", @ARGV), "\n\n";
 }
 
-$opt_per_weeks = 0;
 $opt_quiet  = 0;
+
 # The website is able to store at least 11 days from now
 my $default_opt_days = 11;
 
@@ -392,8 +375,6 @@ GetOptions('days=i'     => \$opt_days,
            'config-file=s' => \$opt_config_file,
            'gui:s'       => \$opt_gui,
            'list-channels' => \$opt_list_channels,
-           'perdays' => \$opt_per_days,
-           'perweeks' => \$opt_per_weeks,
            'ch_prefix=s'  => \$channel_prefix,
            'ch_postfix=s'  => \$channel_postfix,
            'no_episodedesc' => \$no_episodedesc,
@@ -454,11 +435,6 @@ XMLTV::Ask::init($opt_gui);
 $opt_offset = 0 if not defined $opt_offset;
 $opt_days = $default_opt_days if not defined $opt_days;
 
-# Force the per days option in all cases
-if ( $opt_per_weeks == 0 ) {
-  $opt_per_days = 1;
-}
-
 if ( (($opt_offset + $opt_days) > $default_opt_days) or ($opt_offset > $default_opt_days) ) {
   $opt_days = $default_opt_days - $opt_offset;
   if ($opt_days < 0) {
@@ -512,10 +488,6 @@ if (-e "./logo-path.txt") {
     #      print $name_url[0]."|".$name_url[2]."\n";
   }
 }
-
-
-
-
 
 #***************************************************************************
 # Sub sections
@@ -580,14 +552,10 @@ if ($mode eq 'configure') {
   XMLTV::Config_file::check_no_overwrite($config_file);
   open(CONF, '>:utf8', $config_file) or die "Cannot write to $config_file: $!";
 
-  #my $bar = new XMLTV::ProgressBar('getting channel lists', scalar grep { $_ } @gtwant) if not $opt_quiet;
-  my %channels_for;
   my %channels = get_channels("configure.json");
   die 'No channels could be found' if not %channels;
-
-
+  
   my %asked;
-
   # Ask about each channel (unless already asked).
   my @chs = grep { not $asked{$_}++ } sort {$a <=> $b} keys %channels;
   my @names = map { $channels{$_}{name} } @chs;
@@ -694,7 +662,6 @@ if ($mode eq 'confmorechannels') {
 # Check mode checking and get configuration file
 #***************************************************************************
 die if $mode ne 'grab' and $mode ne 'list-channels';
-#       debug_print( "my Mode  : " . $mode ."\n");
 
 my @config_lines;
 if ($mode eq 'grab') {
@@ -712,9 +679,6 @@ if (defined $opt_output) {
 }
 
 $w_args{encoding} = 'UTF-8';
-#$w_args{days} = $opt_days;
-#$w_args{offset} = $opt_offset;
-#$w_args{cutoff} = "000000";
 
 my $writer = new XMLTV::Writer(%w_args);
 $writer->start
@@ -727,22 +691,8 @@ $writer->start
 #***************************************************************************
 # List channels only case
 #***************************************************************************
-#       debug_print( "my Mode  : " . $mode ."\n");
 if ($mode eq 'list-channels') {
-  # Get a list of available channels, according to the grid type
-  #   my @gts = sort keys %GridType;
-  #   my @gtnames  = map { $GridType{$_} } @gts;
-  #   my @gtqs = map { "List channels for grid : $_?" } @gts;
-  #   my @gtwant = ask_many_boolean(1, @gtqs);
-
   my %seen;
-  #   debug_print( "Entering list-channels\n");
-  #   foreach (@gts) {
-  #       debug_print( "In foreach\n");
-  #           my $gtw = shift @gtwant;
-  #           my $gtname = shift @gtnames;
-  #           if ($gtw) {
-  #                   say  "Now getting grid : $_ \n";
   my %channels = get_channels("list_chan.json");
   die 'no channels could be found' if (scalar(keys(%channels)) == 0);
   foreach my $ch_did (sort(keys %channels)) {
@@ -752,10 +702,8 @@ if ($mode eq 'list-channels') {
                              'icon' => [{src=> $channels{$ch_did}{icon} }] })
       unless $seen{$ch_xid}++;
   }
-  #      }
-  #    }
   $writer->end();
-  exit();
+  exit;
 }
 
 #***************************************************************************
@@ -784,57 +732,52 @@ foreach (@config_lines) {
     } else {
       $chid_name = '';
     }
-    $channels{$line_num} = {'chid'=>$chid, 'name'=>$chname, 'icon'=>$chicon, 'chid_name'=>$chid_name};
+    $channels{$chid} = {'name'=>$chname, 'icon'=>$chicon, 'chid_name'=>$chid_name};
   } else {
     warn "$config_file:$line_num: bad line $_\n";
   }
 }
-
 #***************************************************************************
 # Now process the days by getting the main grids.
 #***************************************************************************
-my @to_get;
 warn "No working channels configured, so no listings\n" if not %channels;
 my $script_duration = time();
 
-# The website stores channel information by hour area for a whole week !
-my $ind;
-foreach $ind (sort { $channels{$a}{chid} <=> $channels{$b}{chid} } keys %channels) {
-  my $chid = $channels{$ind}{chid};
+# loop on channels
+foreach my $chid (sort { $a <=> $b } keys %channels) {
   my $url;
   my $i;
   my $dayoff;
   my $json_name = "";
   my $chid_name = "";
 
-  if($channels{$ind}{chid_name} ne '') {
-    $chid_name = $channels{$ind}{chid_name};
+  if($channels{$chid}{chid_name} ne '') {
+    $chid_name = $channels{$chid}{chid_name};
   } else {
     $chid_name = $channel_prefix.$chid.$channel_postfix;
+    $channels{$chid}{chid_name} = $channel_prefix.$chid.$channel_postfix;
   }
-  $writer->write_channel({ id => $chid_name, 'display-name' => [[$channels{$ind}{name}]], 'icon' => [{src=>$channels{$ind}{icon}}]});
-  if ( $opt_per_days ) {
-    for ($i=$opt_offset; $i < $opt_offset+$opt_days; $i++ ) {
-      push @to_get, [ $chid, $i, $chid_name ];
-    }
-  } else {
-    foreach (@offsets) {
-      push @to_get, [ $chid, $_, $chid_name ];
-    }
-  }
+  $writer->write_channel({ id => $chid_name, 'display-name' => [[$channels{$chid}{name}]], 'icon' => [{src=>$channels{$chid}{icon}}]});
 }
 
+# count needed api calls
+my $to_get = scalar(keys %channels) * ($opt_days - $opt_offset);
+my $bar = new XMLTV::ProgressBar('getting listings', $to_get) if not $opt_quiet and not $show_url;
 
-my $bar = new XMLTV::ProgressBar('getting listings', scalar @to_get)  if not $opt_quiet;
 Date_Init('SetDate=now,UTC');
-# get genres
+
+# initialisation genres
 if (!@genres) {
   get_channels("categories.json");
 }
-foreach (@to_get) {
-  my ($chid, $offset, $chid_name) = @$_;
-  process_channel_grid_all_pages($writer, $chid, $offset, $chid_name);
-  update $bar if not $opt_quiet;
+
+# loop on days
+for (my $offset=$opt_offset; $offset < $opt_offset+$opt_days; $offset++ ) {
+  # loop on channels
+  foreach my $chid (sort { $a <=> $b } keys %channels) {
+    process_channel_grid_all_pages($chid, $offset);
+    update $bar if not $opt_quiet and not $show_url;
+  }
 }
 
 $writer->end();
@@ -955,9 +898,8 @@ sub get_channels( $ ) {
   return %channels;
 }
 
-sub process_channel_grid_all_pages ( $$$$ ) {
-  # some channels need more than 1 page
-  my ($writer, $chid, $offset, $chid_name) = @_;
+sub process_channel_grid_all_pages ( $$ ) {
+  my ($chid, $offset) = @_;
   my $dayoff = strftime("%Y-%m-%d", gmtime(time() + 3600 * 24 * $offset));
   my ($jsname, $nb);
   my $page = 1;
@@ -968,18 +910,18 @@ sub process_channel_grid_all_pages ( $$$$ ) {
     my $url = mkurl($CHANNEL_GRID_PAGE, \%params);
     if ($show_url) { print STDERR $url."\n"; }
     if ($save_json) { $jsname = mkjsonname("", \%params); }
-    $nb = process_channel_grid_page($writer, $chid, $url, $offset, $jsname, $chid_name, $dayoff, $page);
+    $nb = process_channel_grid_page($chid, $url, $jsname, $dayoff, $page);
     $page++;
   } until ($nb < $nb_par_page);
 }
 
-sub process_channel_grid_page ( $$$$$$$$ ) {
-  my ($writer, $chid, $url, $slot, $jsname, $chid_name, $dayoff, $page) = @_;
+sub process_channel_grid_page ( $$$$$ ) {
+  my ($chid, $url, $jsname, $dayoff, $page) = @_;
   my $json_hash = get_page_json( $url, $jsname );
   # no data ?
   if(!defined($json_hash->{'donnees'})) {
     if($page == 1) {
-      if(!$opt_quiet) { print STDERR "Aucun programme pour la chaîne $chid $chid_name le $dayoff\n"; }
+      if(!$opt_quiet) { print STDERR "Aucun programme pour la chaîne ".$channels{$chid}{chid_name}." \"".$channels{$chid}{name}."\" le $dayoff\n"; }
     }
     return 0;
   }
@@ -1049,7 +991,7 @@ sub process_channel_grid_page ( $$$$$$$$ ) {
 
     $startdate = utc_offset( $startdate, "+0100");
     $enddate  = utc_offset( $enddate , "+0100");
-    my %prog = (channel  => $chid_name,
+    my %prog = (channel  => $channels{$chid}{chid_name},
                 title       => [ [ $line->{'titre'} ] ], # lang unknown
                 start       => $startdate,
                 stop         => $enddate
@@ -1267,34 +1209,17 @@ sub process_channel_grid_page ( $$$$$$$$ ) {
       push @{$prog{desc}}, [$description, $LANG ];
     }
 
-
-
-    #        if ($rating2) {
-    #            push @{$prog{rating}}, [ "Tout public", "CSA", [] ];
-    #        }
-
+    # CSA Icons
     if ($age == 0) {
       push @{$prog{rating}}, [ "Tout public", "CSA", [] ];
     } else {
       push @{$prog{rating}}, [ $age, "CSA", [ {src => $icon}] ];
     }
 
-
-
-
-
-
-    # étoiles
+    # étoiles T
     $prog{'star-rating'} = [$stars."/5"] if ($stars);
 
-    #debug_print($title." - ".$startdate." - ".$enddate."\n");
-    #debug_print("genre  : ".$genretext." - ".$subgenre."\n");
-    #debug_print("description  : ".$description."\n");
-    #debug_print("genre        : ".$genretext."\n");
-    #debug_print(Dumper(%prog));
-
     $writer->write_programme(\%prog);
-
   }
   return $nb;
 }
