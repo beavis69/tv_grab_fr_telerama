@@ -827,7 +827,10 @@ foreach $ind (sort { $channels{$a}{chid} <=> $channels{$b}{chid} } keys %channel
 
 my $bar = new XMLTV::ProgressBar('getting listings', scalar @to_get)  if not $opt_quiet;
 Date_Init('SetDate=now,UTC');
-
+# get genres
+if (!@genres) {
+  get_channels("categories.json");
+}
 foreach (@to_get) {
   my ($chid, $offset, $chid_name) = @$_;
   process_channel_grid_all_pages($writer, $chid, $offset, $chid_name);
@@ -972,10 +975,6 @@ sub process_channel_grid_all_pages ( $$$$ ) {
 
 sub process_channel_grid_page ( $$$$$$$$ ) {
   my ($writer, $chid, $url, $slot, $jsname, $chid_name, $dayoff, $page) = @_;
-
-  if (!@genres) {
-    get_channels("categories.json");
-  }
   my $json_hash = get_page_json( $url, $jsname );
   # no data ?
   if(!defined($json_hash->{'donnees'})) {
