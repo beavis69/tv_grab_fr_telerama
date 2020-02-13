@@ -325,7 +325,7 @@ sub get_more_channel_icon( $ );
 sub process_channel_grid_all_pages( $$ );
 sub process_channel_grid_page( $$$$$ );
 sub debug_print( @ );
-sub get_page_json( $$ );
+sub get_page_json( $$$ );
 
 #***************************************************************************
 # Main declarations
@@ -336,7 +336,6 @@ my $Delay = 5;
 my $FailOnError = 1;
 
 my %errors = ();
-my $last_get_time;
 my $channel_postfix = ".api.telerama.fr";
 my $channel_prefix = "C";
 
@@ -741,7 +740,8 @@ foreach (@config_lines) {
 # Now process the days by getting the main grids.
 #***************************************************************************
 warn "No working channels configured, so no listings\n" if not %channels;
-my $script_duration = time();
+my %stats;
+$stats{start} = time();
 
 # loop on channels
 foreach my $chid (sort { $a <=> $b } keys %channels) {
@@ -784,8 +784,13 @@ $writer->end();
 $bar->finish() if not $opt_quiet;
 
 # Print the duration
-$script_duration = time() - $script_duration;
-print STDERR "Grabber process finished in " . $script_duration . " seconds.\n" if not $opt_quiet;
+if (!$opt_quiet) {
+  my @apis;
+  foreach my $api(sort { $stats{api}{$b} <=> $stats{api}{$a} } keys %{$stats{api}}) {
+    if($api ne 'total') { push @apis, "api_".$api." ".$stats{api}{$api}; }
+  }
+  print STDERR "Grabber process finished in ".(time() - $stats{start})." seconds, ".$stats{api}{total}." api calls : ".join(', ',@apis)."\n";
+}
 
 #***************************************************************************
 # Specific functions for grabbing information
@@ -869,7 +874,7 @@ sub get_channels( $ ) {
     print STDERR $my_url."\n";
   }
 
-  my $json_hash = get_page_json($my_url, $jsname);
+  my $json_hash = get_page_json('init',$my_url, $jsname);
 
   my $chicon = "";
   my @lines = @{ $json_hash->{'donnees'}{'chaines'} };
@@ -917,7 +922,7 @@ sub process_channel_grid_all_pages ( $$ ) {
 
 sub process_channel_grid_page ( $$$$$ ) {
   my ($chid, $url, $jsname, $dayoff, $page) = @_;
-  my $json_hash = get_page_json( $url, $jsname );
+  my $json_hash = get_page_json('grille', $url, $jsname);
   # no data ?
   if(!defined($json_hash->{'donnees'})) {
     if($page == 1) {
@@ -967,17 +972,6 @@ sub process_channel_grid_page ( $$$$$ ) {
     $description = trim($line->{'resume'}) if ($line->{'resume'}) ;
     my $genre = $line->{'id_genre'} ? $line->{'id_genre'} : 0;
     my $genretext = $genre ? $genres[$genre] : "";
-    my $critic = "";
-    # debug_print("possede_critique : ".$line->{'possede_critique'}."\n");
-    # debug_print("possede_notule : ".$line->{'possede_notule'}."\n");
-
-    if ($line->{'possede_critique'} == 1) {
-      $critic = trim($line->{'critique'}) if ($line->{'critique'}) ;
-      # debug_print("critique : ".$critic."\n");
-    } elsif ($line->{'possede_notule'} == 1) {
-      $critic = trim($line->{'notule'}) if ($line->{'notule'}) ;
-      # debug_print("notule : ".$critic."\n");
-    }
 
     my $stars = $line->{'note_telerama'};
     my $chname = $channelnames[$chid];
@@ -1068,13 +1062,16 @@ sub process_channel_grid_page ( $$$$$ ) {
         $genretext = "Théâtre";
       }
     }
+
+    my $critic = "";
     # if casting is enable, we need another api call
     if($opt_casting && (!$subgenre || $subgenre !~ /(animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)$/i) && ($genretext =~ /^(Film|Série|Feuilleton|Téléfilm|Théâtre)$/i)) {
-     my $jsname_programme = '';
-     my $url_programme = mkurl($CHANNEL_PROGRAMME_PAGE.$line->{'id_programme'}, {} );
-     if ($show_url) { print STDERR $url_programme."\n"; }
-     if ($save_json) { $jsname_programme = mkjsonname("", { "id_programme" => $line->{'id_programme'}}); }
-      my $json_hash_programme = get_page_json( $url_programme, $jsname_programme );
+      my $jsname_programme = '';
+      my $url_programme = mkurl($CHANNEL_PROGRAMME_PAGE.$line->{'id_programme'}, {} );
+      if ($genretext eq 'Film') { print $line->{'id_programme'}." ".$line->{'titre'}."\n"; }
+      if ($show_url) { print STDERR $url_programme."\n"; }
+      if ($save_json) { $jsname_programme = mkjsonname("", { "id_programme" => $line->{'id_programme'}}); }
+      my $json_hash_programme = get_page_json('casting', $url_programme, $jsname_programme);
       #print Dumper($json_hash_programme->{'donnees'}[0]->{intervenants})."\n";
       my @cast = @{ $json_hash_programme->{'donnees'}[0]->{intervenants} } if ($json_hash_programme->{'donnees'} && $json_hash_programme->{'donnees'}[0]->{intervenants} );
       #if(scalar(@cast) == 0) { print $genretext." ".$subgenre."\n"; }
@@ -1094,7 +1091,7 @@ sub process_channel_grid_page ( $$$$$ ) {
           push @{$prog{credits}{presenter}}, $cname;
         } elsif ($ctype =~ m/Musique/) {
           push @{$prog{credits}{composer}}, $cname;
-        } elsif ($ctype =~ m/Cr.+ateur/ || $ctype =~ m/Auteur/ || $ctype =~ m/Sc.+nariste/ || $ctype =~ m/Sc.+nario/ || $ctype =~ m/Dialogue/) {
+        }  elsif ($ctype =~ m/Cr.+ateur/ || $ctype =~ m/Auteur/ || $ctype =~ m/Sc.+nariste/ || $ctype =~ m/Sc.+nario/ || $ctype =~ m/Dialogue/) {
           push @{$prog{credits}{writer}}, $cname;
         } else {
           if ($roleid eq "1") {
@@ -1109,6 +1106,11 @@ sub process_channel_grid_page ( $$$$$ ) {
             push @{$prog{credits}{guest}}, $cname;
           }
         }
+      }
+      if ($line->{'possede_critique'} == 1) {
+        $critic = trim($json_hash_programme->{'donnees'}[0]->{critique}) if($json_hash_programme->{'donnees'}[0]->{critique}) ;
+      } elsif ($line->{'possede_notule'} == 1) {
+        $critic = trim($json_hash_programme->{'donnees'}[0]->{notule}) if ($json_hash_programme->{'donnees'}[0]->{notule}) ;
       }
     }
 
@@ -1193,7 +1195,7 @@ sub process_channel_grid_page ( $$$$$ ) {
 
     if ( $description ne "" ) {
       if (!$critic) {
-        ;                       # Nothing to do
+        ;# Nothing to do
       } elsif ($critic eq $description) {
         $description = "Critique : ".$critic;
       } else {
@@ -1205,7 +1207,7 @@ sub process_channel_grid_page ( $$$$$ ) {
           $description =~ s/<\/?[^>]+>//g;
       }
       $description =~ s/\r//g;
-
+      print $no_htmltags.":".$description."\n";
       push @{$prog{desc}}, [$description, $LANG ];
     }
 
@@ -1226,9 +1228,11 @@ sub process_channel_grid_page ( $$$$$ ) {
 
 # use XMLTV::get_nice
 # with our error_handling
-sub get_page_json( $$ ) {
-  my $url = shift;
-  my $jsname = shift ;
+sub get_page_json( $$$ ) {
+  my ($api_name, $url, $jsname) = @_;
+  # stats on api calls
+  $stats{api}{total}++;
+  $stats{api}{$api_name}++;
 
   my $content = get_nice($url);
   my $json;
