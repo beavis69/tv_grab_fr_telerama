@@ -404,12 +404,12 @@ $XMLTV::Get_nice::ua = LWP::UserAgent->new(
   agent=>"okhttp/3.12.3"
 );
 $XMLTV::Get_nice::ua->default_header(
-  'lmd-systemname'    => 'Android',
-  'lmd-systemversion' => '8.1.0',
-  'lmd-devicetype'    => 'tablet',
-  'lmd-devicemodel'   => 'Samsung Galaxy',
-  'lmd-bundleid'      => 'com.telerama.fr',
-  'lmd-appversion'    => '3.6.4',
+  'LMD-SystemName'    => 'Android',
+  'LMD-SystemVersion' => '8.1.0',
+  'LMD-DeviceType'    => 'tablet',
+  'LMD-DeviceModel'   => 'samsung Galaxy Tab S6 Samsung (Android 8.1.0) API-27',
+  'LMD-BundleId'      => 'com.telerama.fr',
+  'LMD-AppVersion'    => '3.6.4',
 );
 
 $XMLTV::Get_nice::ua->env_proxy;
