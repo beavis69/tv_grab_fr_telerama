@@ -771,6 +771,10 @@ if (!@genres) {
   get_channels("categories.json");
 }
 
+# cache emission to reduce casting/programme api call
+my %emissions;
+my $emissions_cache = 1;
+
 # loop on days
 for (my $offset=$opt_offset; $offset < $opt_offset+$opt_days; $offset++ ) {
   # loop on channels
@@ -967,21 +971,15 @@ sub process_channel_grid_page ( $$$$$ ) {
 
     my $startdate = $line->{'horaire'}{'debut'};
     my $enddate = $line->{'horaire'}{'fin'};
+    $startdate =~ tr/:\$\ -//d;
+    $enddate =~ tr/:\$\ -//d;
+
     my $title = $line->{'titre'};
     my $description = "";
     $description = trim($line->{'resume'}) if ($line->{'resume'}) ;
-    my $genre = $line->{'id_genre'} ? $line->{'id_genre'} : 0;
-    my $genretext = $genre ? $genres[$genre] : "";
 
-    my $stars = $line->{'note_telerama'};
     my $chname = $channelnames[$chid];
-
-
     my $imgurl= $line->{'vignette'}{'grande'};
-
-
-    $startdate =~ tr/:\$\ -//d;
-    $enddate =~ tr/:\$\ -//d;
 
     $startdate = utc_offset( $startdate, "+0100");
     $enddate  = utc_offset( $enddate , "+0100");
@@ -990,8 +988,6 @@ sub process_channel_grid_page ( $$$$$ ) {
                 start       => $startdate,
                 stop         => $enddate
                );
-    #debug_print($start.">".$stop."\n");
-    #####
 
     my $crypted = 0;
     if ( $no_cryptedcplus && $channelnames[$chid] =~ m/Canal+/ ) {
@@ -1000,7 +996,9 @@ sub process_channel_grid_page ( $$$$$ ) {
     if ( $no_cryptedpprem && $channelnames[$chid] =~ m/Paris Première/ ) {
       $crypted = 1;
     }
-    ####
+
+    my $genre = $line->{'id_genre'} ? $line->{'id_genre'} : 0;
+    my $genretext = $genre ? $genres[$genre] : "";
     my $subgenre = $line->{'genre_specifique'};
     my $episode = $line->{'serie'}{'numero_episode'};
     my $season = $line->{'serie'}{'saison'};
@@ -1068,10 +1066,20 @@ sub process_channel_grid_page ( $$$$$ ) {
     if($opt_casting && (!$subgenre || $subgenre !~ /(animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)$/i) && ($genretext =~ /^(Film|Série|Feuilleton|Téléfilm|Théâtre)$/i)) {
       my $jsname_programme = '';
       my $url_programme = mkurl($CHANNEL_PROGRAMME_PAGE.$line->{'id_programme'}, {} );
-      if ($genretext eq 'Film') { print $line->{'id_programme'}." ".$line->{'titre'}."\n"; }
+      #if ($genretext eq 'Film') { print $line->{'id_programme'}." ".$line->{'titre'}."\n"; }
       if ($show_url) { print STDERR $url_programme."\n"; }
       if ($save_json) { $jsname_programme = mkjsonname("", { "id_programme" => $line->{'id_programme'}}); }
-      my $json_hash_programme = get_page_json('casting', $url_programme, $jsname_programme);
+      my $json_hash_programme;
+      # try to use emissions cache
+      if(exists $emissions{$line->{id_emission}} && $emissions_cache) {
+        #use cache
+        $stats{api}{cache}++;
+        #print "use cache for ".$line->{titre}.", id_programme ".$line->{id_programme}.", id_emmission ".$line->{id_emission}."\n";
+        $json_hash_programme = $emissions{$line->{id_emission}};
+      } else {
+        $json_hash_programme = get_page_json('casting', $url_programme, $jsname_programme);
+        $emissions{$line->{id_emission}} = $json_hash_programme if $emissions_cache;
+      }
       #print Dumper($json_hash_programme->{'donnees'}[0]->{intervenants})."\n";
       my @cast = @{ $json_hash_programme->{'donnees'}[0]->{intervenants} } if ($json_hash_programme->{'donnees'} && $json_hash_programme->{'donnees'}[0]->{intervenants} );
       #if(scalar(@cast) == 0) { print $genretext." ".$subgenre."\n"; }
@@ -1207,7 +1215,6 @@ sub process_channel_grid_page ( $$$$$ ) {
           $description =~ s/<\/?[^>]+>//g;
       }
       $description =~ s/\r//g;
-      print $no_htmltags.":".$description."\n";
       push @{$prog{desc}}, [$description, $LANG ];
     }
 
@@ -1219,7 +1226,7 @@ sub process_channel_grid_page ( $$$$$ ) {
     }
 
     # étoiles T
-    $prog{'star-rating'} = [$stars."/5"] if ($stars);
+    $prog{'star-rating'} = [$line->{'note_telerama'}."/5"] if ($line->{'note_telerama'});
 
     $writer->write_programme(\%prog);
   }
