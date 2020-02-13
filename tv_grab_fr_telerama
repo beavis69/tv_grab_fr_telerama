@@ -405,9 +405,9 @@ $XMLTV::Get_nice::ua = LWP::UserAgent->new(
 );
 $XMLTV::Get_nice::ua->default_header(
   'LMD-SystemName'    => 'Android',
-  'LMD-SystemVersion' => '8.1.0',
+  'LMD-SystemVersion' => '9.1.0',
   'LMD-DeviceType'    => 'tablet',
-  'LMD-DeviceModel'   => 'samsung Galaxy Tab S6 Samsung (Android 8.1.0) API-27',
+  'LMD-DeviceModel'   => 'samsung Galaxy Tab S6 Samsung (Android 9.1.0) API-28',
   'LMD-BundleId'      => 'com.telerama.fr',
   'LMD-AppVersion'    => '3.6.4',
 );
@@ -1249,16 +1249,17 @@ sub get_page_json( $$ ) {
     }
   }
 
-  if ($save_json) {
-    open (JSFIC, ">$jsname") || die ("Vous ne pouvez pas créer le fichier \"$jsname\"");
-    print JSFIC $content;
-    close (JSFIC);
-  }
-
   eval {
     $json = JSON->new->utf8(1)->decode($content);
   } or do {
     die ("malformed json on $url : ".$Response->status_code."\n");
   };
+
+  if ($save_json) {
+    open (JSFIC, ">$jsname") || die ("Vous ne pouvez pas créer le fichier \"$jsname\"");
+    print JSFIC JSON->new->pretty->encode($json);
+    close (JSFIC);
+  }
+
   return $json;
 }
