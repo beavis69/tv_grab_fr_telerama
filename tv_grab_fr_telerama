@@ -940,7 +940,7 @@ sub grab_day ($) {
     $g_deb += $group_size;
     $g_end += $group_size;
     if($g_end > $nb_chans-1) { $g_end = $nb_chans-1; }
-  } until ($g_end == $nb_chans-1)
+  } until ($g_deb > $nb_chans-1)
 }
 
 sub grab_day_channel($$$$$$) {
