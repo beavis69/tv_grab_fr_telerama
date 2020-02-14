@@ -19,7 +19,7 @@ tv_grab_fr_telerama - Grab TV listings for France.
         [--no_episodedesc] [--no_aggregatecat]
         [--show_url] [--save_json]
         [--no_cryptedcplus] [--no_cryptedpprem]
-        [--casting]
+        [--casting] [--no-optim]
  To show capabilities:
    tv_grab_fr --capabilities
  To show version:
@@ -264,6 +264,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 1.42 Fix params/page
 
+2.0  Nettoyage, Réécriture et optimisations pour avoir moins d'appel d'api
+     * un appel d'api grille pour 32 chaînes à la fois (32x plus rapide si vous n'utiliser pas --casting)
+     * cache pour le casting car les programmes_id qui ont le même emission_id sont la même émission (2 à 3 fois plus rapide si vous utiliser --casting)
+     * Les critiques et notules sont récupérés avec le casting
+     * Quand il n'y a pas de titre on prend soustitre.
 =cut
 
 use XMLTV::Usage <<END
@@ -275,7 +280,8 @@ use XMLTV::Usage <<END
     [--ch_prefix prefix] [--ch_postfix postfix] [--delay N]
     [--no_episodedesc] [--no_aggregatecat]
     [--show_url] [--save_json]
-    [--no_cryptedcplus] [--no_cryptedpprem] [--no_htmltags] [--casting]
+    [--no_cryptedcplus] [--no_cryptedpprem] [--no_htmltags]
+    [--casting] [--no-optim]
     prefix, postfix : strings, "" for null string
     To show capabilities : $0 --capabilities
     To show version      : $0 --version
@@ -287,7 +293,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 1.42 2020/02/09 17:42:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.0 2020/02/14 20:25:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -334,7 +340,6 @@ my $LANG = "fr";
 # delay between api requests in seconds
 my $Delay = 5;
 my $FailOnError = 1;
-my $group_size = 32;
 
 my %errors = ();
 my $channel_postfix = ".api.telerama.fr";
@@ -354,7 +359,7 @@ XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux') # cache on disk
 my ($opt_days, $opt_help, $opt_output, $opt_offset, $opt_gui, $opt_quiet,
     $opt_list_channels, $opt_config_file, $opt_configure, $opt_morechannels, $opt_logo_path,
     $no_episodedesc, $no_aggregatecat, $show_url, $save_json, $no_cryptedcplus, $no_cryptedpprem,
-    $no_htmltags, $opt_casting );
+    $no_htmltags, $opt_casting, $opt_no_optim );
 
 # debug
 if ($DEBUG_CMD) {
@@ -385,16 +390,26 @@ GetOptions('days=i'     => \$opt_days,
            'no_cryptedpprem' => \$no_cryptedpprem,
            'no_htmltags' => \$no_htmltags,
            'casting' => \$opt_casting,
+           'no-optim' => \$opt_no_optim,
            ##Gestion des channels non declares dans les listes "officielles"
            'configure-more-channels' => \$opt_morechannels,
            'delay=i' => \$Delay
           )
   or usage(0);
 
-my $CHANNEL_GRID;
-my $CHANNEL_GRID_PAGE;
-my $CHANNEL_PROGRAMME_PAGE;
-my $ROOT_URL;
+my $CHANNEL_GRID = '/v1/application/initialisation';
+my $CHANNEL_GRID_PAGE = '/v1/programmes/grille';
+my $CHANNEL_PROGRAMME_PAGE = '/v1/programmes/';
+my $ROOT_URL  = 'https://api.telerama.fr';
+
+my %stats;
+my $group_size = 32;
+my $emissions_cache = 1;
+if($opt_no_optim) {
+  $group_size = 1;
+  $emissions_cache = 0;
+}
+$stats{cache_casting} = 0;
 
 # use keep-alive to avoid useless ssl handshakes !
 $XMLTV::Get_nice::ua = LWP::UserAgent->new(
@@ -416,11 +431,6 @@ $XMLTV::Get_nice::ua->env_proxy;
 $XMLTV::Get_nice::Delay = $Delay;
 # tell XMLTV::Get_nice, we handle error our self
 $XMLTV::Get_nice::FailOnError = 0;
-
-$CHANNEL_GRID = '/v1/application/initialisation';
-$CHANNEL_GRID_PAGE = '/v1/programmes/grille';
-$CHANNEL_PROGRAMME_PAGE = '/v1/programmes/';
-$ROOT_URL  = 'https://api.telerama.fr';
 
 #***************************************************************************
 # Options processing, warnings, checks and default parameters
@@ -481,11 +491,8 @@ if (-e "./logo-path.txt") {
   close(FILE);
 
   foreach $chan (@data) {
-    #      print STDERR "Ligne Logo : " . $chan . "\n";
     @name_url = split('\|', $chan);
-    #      $xmltvid_map{$name_url[0]} = $name_url[1];
     $icon_map{$name_url[0]} = $name_url[2];
-    #      print $name_url[0]."|".$name_url[2]."\n";
   }
 }
 
@@ -741,7 +748,6 @@ foreach (@config_lines) {
 # Now process the days by getting the main grids.
 #***************************************************************************
 warn "No working channels configured, so no listings\n" if not %channels;
-my %stats;
 $stats{start} = time();
 
 # loop on channels
@@ -775,9 +781,6 @@ if (!@genres) {
 
 # cache emission to reduce casting/programme api call
 my %emissions;
-my $emissions_cache = 1;
-$stats{cache_casting} = 0;
-
 # loop on days
 for (my $offset=$opt_offset; $offset < $opt_offset+$opt_days; $offset++ ) {
   grab_day($offset);
@@ -929,7 +932,7 @@ sub grab_day ($) {
       if ($show_url) { print STDERR $url."\n"; }
       if ($save_json) { $jsname = mkjsonname("", \%params_jsname); }
       my $json = get_page_json('grille', $url, $jsname);
-      $nb = $json->{'pagination'}{'nb_sur_page'};
+      $nb = $json->{'pagination'}{'nb_sur_page'} if (defined $json->{'pagination'}{'nb_sur_page'});
       update $bar if not $opt_quiet and not $show_url;
       # loop on chid
       foreach my $chid (sort { $a <=> $b } @chids) { 
@@ -939,7 +942,6 @@ sub grab_day ($) {
         } elsif(!$opt_quiet) {
           print STDERR "Aucun programme pour la chaîne $chid ".$channels{$chid}{name}." le $dayoff\n";
         }
-        grab_day_channel($chid, $url, $jsname, $dayoff, $page, \@progs);
       }
       $page++;
     } until ($nb < $nb_par_page);
@@ -952,16 +954,45 @@ sub grab_day ($) {
 
 sub grab_day_channel($$$$$$) {
   my ($chid, $url, $jsname, $dayoff, $page, $progs) = @_;
-  my @lines = @$progs;
-  foreach my $line ( sort { $a->{'horaire'}{'debut'} cmp $b->{'horaire'}{'debut'} } @lines ) {
+  my @lines = sort { $a->{'horaire'}{'debut'} cmp $b->{'horaire'}{'debut'} } @$progs;
+
+  # flag overlapping
+  # check all, starting at end
+  my $nb = scalar @lines;
+  my $start = 0;
+  $lines[$nb-1]{'overlap'} = 0;
+  for (my $i=$nb-1;$i>=1;$i--) {
+    my $stop_prev = $lines[$i-1]{'horaire'}{'fin'};
+    $stop_prev  =~ tr/:\$\ -//d;
+    if($lines[$i]{'overlap'} != 1) {
+      $start = $lines[$i]{'horaire'}{'debut'};
+      $start =~ tr/:\$\ -//d;
+    }
+    if($stop_prev > $start) {
+      $lines[$i-1]{'overlap'} = 1;
+    } else {
+      $lines[$i-1]{'overlap'} = 0;
+    }
+  }
+  # if last programme ends >= 06:00:00 flag it
+  # to avoid duplicate between day and day+1
+  if($lines[$nb-1]{'horaire'}{'fin'} =~ m/(\d+):\d+:\d+$/) {
+    if( $1 >= 6) { $lines[$nb-1]{'overlap'} = 1; }
+  }
+
+  foreach my $line (@lines) {
+    # skip overlaping and duplicate
+    if($line->{'overlap'}) { next;}
+
     my $startdate = $line->{'horaire'}{'debut'};
     my $enddate = $line->{'horaire'}{'fin'};
     $startdate =~ tr/:\$\ -//d;
     $enddate =~ tr/:\$\ -//d;
 
     my $title = $line->{'titre'};
-    if($title eq '' && $line->{'soustitre'}) { $title = $line->{'soustitre'} } else { $title = "sans titre"; }
-
+    if($title eq '') {
+      if($line->{'soustitre'} ne '') { $title = $line->{'soustitre'}; } else { $title = 'sans titre'; }
+    }
     my $description = "";
     $description = trim($line->{'resume'}) if ($line->{'resume'}) ;
 
