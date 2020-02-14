@@ -952,7 +952,6 @@ sub grab_day ($) {
 
 sub grab_day_channel($$$$$$) {
   my ($chid, $url, $jsname, $dayoff, $page, $progs) = @_;
-  # no data ?
   my @lines = @$progs;
   foreach my $line ( sort { $a->{'horaire'}{'debut'} cmp $b->{'horaire'}{'debut'} } @lines ) {
     my $startdate = $line->{'horaire'}{'debut'};
