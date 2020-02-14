@@ -776,6 +776,7 @@ if (!@genres) {
 # cache emission to reduce casting/programme api call
 my %emissions;
 my $emissions_cache = 1;
+$stats{cache_casting} = 0;
 
 # loop on days
 for (my $offset=$opt_offset; $offset < $opt_offset+$opt_days; $offset++ ) {
@@ -789,9 +790,9 @@ $bar->finish() if not $opt_quiet and not $show_url;
 if (!$opt_quiet) {
   my @apis;
   foreach my $api(sort { $stats{api}{$b} <=> $stats{api}{$a} } keys %{$stats{api}}) {
-    if($api ne 'total') { push @apis, "api_".$api." ".$stats{api}{$api}; }
+    if($api ne 'total') { push @apis, $stats{api}{$api}." api_".$api; }
   }
-  print STDERR "Grabber process finished in ".(time() - $stats{start})." seconds, ".$stats{api}{total}." api calls : ".join(', ',@apis)."\n";
+  print STDERR "Grabber process finished in ".(time() - $stats{start})." seconds for ".$nb_chans." chans, ".$stats{api}{total}." api calls : ".join(', ',@apis).", ".$stats{cache_casting}." cached api_casting\n";
 }
 
 #***************************************************************************
@@ -936,7 +937,7 @@ sub grab_day ($) {
         if(scalar @progs) {
           grab_day_channel($chid, $url, $jsname, $dayoff, $page, \@progs);
         } elsif(!$opt_quiet) {
-          print STDERR "Aucun programme pour la chaîne $chid ".$channels{$chid}{chid_name}." le $dayoff\n";
+          print STDERR "Aucun programme pour la chaîne $chid ".$channels{$chid}{name}." le $dayoff\n";
         }
         grab_day_channel($chid, $url, $jsname, $dayoff, $page, \@progs);
       }
@@ -1059,7 +1060,7 @@ sub grab_day_channel($$$$$$) {
       # try to use emissions cache
       if(exists $emissions{$line->{id_emission}} && $emissions_cache) {
         #use cache
-        $stats{cache_emission}++;
+        $stats{cache_casting}++;
         $json_p = $emissions{$line->{id_emission}};
       } else {
         $json_p = get_page_json('casting', $url_programme, $jsname_programme);
@@ -1251,7 +1252,7 @@ sub get_page_json( $$$ ) {
 
   if ($save_json) {
     open (JSFIC, ">$jsname") || die ("Vous ne pouvez pas créer le fichier \"$jsname\"");
-    print JSFIC JSON->new->pretty->encode($json);
+    print JSFIC JSON->new->pretty->canonical->encode($json);
     close (JSFIC);
   }
 
