@@ -1046,22 +1046,19 @@ sub grab_day_channel($$$$$$) {
     if($opt_casting && (!$subgenre || $subgenre !~ /(animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)$/i) && ($genretext =~ /^(Film|Série|Feuilleton|Téléfilm|Théâtre)$/i)) {
       my $jsname_programme = '';
       my $url_programme = mkurl($CHANNEL_PROGRAMME_PAGE.$line->{'id_programme'}, {} );
-      #if ($genretext eq 'Film') { print $line->{'id_programme'}." ".$line->{'titre'}."\n"; }
       if ($show_url) { print STDERR $url_programme."\n"; }
       if ($save_json) { $jsname_programme = mkjsonname("", { "id_programme" => $line->{'id_programme'}}); }
-      my $json_hash_programme;
+      my $json_p;
       # try to use emissions cache
       if(exists $emissions{$line->{id_emission}} && $emissions_cache) {
         #use cache
-        $stats{api}{cache}++;
-        #print "use cache for ".$line->{titre}.", id_programme ".$line->{id_programme}.", id_emmission ".$line->{id_emission}."\n";
-        $json_hash_programme = $emissions{$line->{id_emission}};
+        $stats{cache_emission}++;
+        $json_p = $emissions{$line->{id_emission}};
       } else {
-        $json_hash_programme = get_page_json('casting', $url_programme, $jsname_programme);
-        $emissions{$line->{id_emission}} = $json_hash_programme if $emissions_cache;
+        $json_p = get_page_json('casting', $url_programme, $jsname_programme);
+        $emissions{$line->{id_emission}} = $json_p if $emissions_cache;
       }
-      #print Dumper($json_hash_programme->{'donnees'}[0]->{intervenants})."\n";
-      my @cast = @{ $json_hash_programme->{'donnees'}[0]->{intervenants} } if ($json_hash_programme->{'donnees'} && $json_hash_programme->{'donnees'}[0]->{intervenants} );
+      my @cast = @{ $json_p->{donnees}[0]->{intervenants} } if ($json_p->{donnees} && $json_p->{donnees}[0]->{intervenants} );
       #if(scalar(@cast) == 0) { print $genretext." ".$subgenre."\n"; }
       foreach my $people (@cast) {
         my $ctype = $people->{'libelle'};
@@ -1096,9 +1093,9 @@ sub grab_day_channel($$$$$$) {
         }
       }
       if ($line->{'possede_critique'} == 1) {
-        $critic = trim($json_hash_programme->{'donnees'}[0]->{critique}) if($json_hash_programme->{'donnees'}[0]->{critique}) ;
+        $critic = trim($json_p->{'donnees'}[0]->{critique}) if($json_p->{'donnees'}[0]->{critique}) ;
       } elsif ($line->{'possede_notule'} == 1) {
-        $critic = trim($json_hash_programme->{'donnees'}[0]->{notule}) if ($json_hash_programme->{'donnees'}[0]->{notule}) ;
+        $critic = trim($json_p->{'donnees'}[0]->{notule}) if ($json_p->{'donnees'}[0]->{notule}) ;
       }
     }
 
