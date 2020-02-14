@@ -933,6 +933,11 @@ sub grab_day ($) {
       # loop on chid
       foreach my $chid (sort { $a <=> $b } @chids) { 
         my @progs = grep { $_->{id_chaine} == $chid } @{$json->{'donnees'}};
+        if(scalar @progs) {
+          grab_day_channel($chid, $url, $jsname, $dayoff, $page, \@progs);
+        } elsif(!$opt_quiet) {
+          print STDERR "Aucun programme pour la chaîne $chid ".$channels{$chid}{chid_name}." le $dayoff\n";
+        }
         grab_day_channel($chid, $url, $jsname, $dayoff, $page, \@progs);
       }
       $page++;
