@@ -923,9 +923,10 @@ sub grab_day ($) {
     my $nb = 0;
     do {
       my %params = ( 'date' => $dayoff, 'id_chaines' => $chans, 'nb_par_page' => $nb_par_page, 'page' => $page );
+      my %params_jsname = ( 'date' => $dayoff =~ s/-//gr, 'id_chaines' => $chans =~ s/,/_/gr, 'page' => $page );
       my $url = mkurl($CHANNEL_GRID_PAGE, \%params);
       if ($show_url) { print STDERR $url."\n"; }
-      if ($save_json) { $jsname = mkjsonname("", \%params); }
+      if ($save_json) { $jsname = mkjsonname("", \%params_jsname); }
       my $json = get_page_json('grille', $url, $jsname);
       $nb = $json->{'pagination'}{'nb_sur_page'};
       update $bar if not $opt_quiet and not $show_url;
@@ -949,12 +950,13 @@ sub grab_day_channel($$$$$$) {
   my @lines = @$progs;
   foreach my $line ( sort { $a->{'horaire'}{'debut'} cmp $b->{'horaire'}{'debut'} } @lines ) {
     my $startdate = $line->{'horaire'}{'debut'};
-    #print $startdate."\n";
     my $enddate = $line->{'horaire'}{'fin'};
     $startdate =~ tr/:\$\ -//d;
     $enddate =~ tr/:\$\ -//d;
 
     my $title = $line->{'titre'};
+    if($title eq '' && $line->{'soustitre'}) { $title = $line->{'soustitre'} } else { $title = "sans titre"; }
+
     my $description = "";
     $description = trim($line->{'resume'}) if ($line->{'resume'}) ;
 
@@ -964,7 +966,7 @@ sub grab_day_channel($$$$$$) {
     $startdate = utc_offset( $startdate, "+0100");
     $enddate  = utc_offset( $enddate , "+0100");
     my %prog = (channel  => $channels{$chid}{chid_name},
-                title       => [ [ $line->{'titre'} ] ], # lang unknown
+                title       => [ [ $title ] ], # lang unknown
                 start       => $startdate,
                 stop         => $enddate
                );
@@ -1102,7 +1104,6 @@ sub grab_day_channel($$$$$$) {
     $prog{'date'} = $line->{'annee_realisation'} if ($line->{'annee_realisation'});
     $prog{country} = [[$line->{'libelle_nationalite'}]] if ($line->{'libelle_nationalite'});
     $prog{'audio'}{stereo} = "bilingual" if ($line->{'flags'}{'est_vm'});
-    #$prog{title_orig} = $line->{'titre_original'} if ($line->{'titre_original'});
 
     $crypted = 0 if ($line->{'flags'}{'est_clair'});
     $prog{subtitles} = [ { type => 'onscreen', language => ['fr'] } ] if ($line->{'flags'}{'est_vost'});
