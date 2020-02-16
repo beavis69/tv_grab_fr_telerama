@@ -269,6 +269,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
      * cache pour le casting car les programmes_id qui ont le même emission_id sont la même émission (2 à 3 fois plus rapide si vous utiliser --casting)
      * Les critiques et notules sont récupérés avec le casting
      * Quand il n'y a pas de titre on prend soustitre.
+
+2.1 Utilisation de l'api v3 avec heure_debut et heure_fin
+
 =cut
 
 use XMLTV::Usage <<END
@@ -293,7 +296,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.0 2020/02/14 20:25:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.1 2020/02/16 12:05:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -398,7 +401,7 @@ GetOptions('days=i'     => \$opt_days,
   or usage(0);
 
 my $CHANNEL_GRID = '/v1/application/initialisation';
-my $CHANNEL_GRID_PAGE = '/v1/programmes/grille';
+my $CHANNEL_GRID_PAGE = '/v3/programmes/grille';
 my $CHANNEL_PROGRAMME_PAGE = '/v1/programmes/';
 my $ROOT_URL  = 'https://api.telerama.fr';
 
@@ -926,8 +929,13 @@ sub grab_day ($) {
     # loop on page if needed
     my $nb = 0;
     do {
-      my %params = ( 'date' => $dayoff, 'id_chaines' => $chans, 'nb_par_page' => $nb_par_page, 'page' => $page );
-      my %params_jsname = ( 'date' => $dayoff =~ s/-//gr, 'id_chaines' => $chans =~ s/,/_/gr, 'page' => $page );
+      my %params = ( 'date' => $dayoff, 'id_chaines' => $chans, 'heure_debut' => '00:00', 'heure_fin' => '23:59', 'nb_par_page' => $nb_par_page, 'page' => $page );
+      my %params_jsname;
+      if($group_size == 1) {
+        %params_jsname = ( 'date' => $dayoff, 'id_chaines' => $chans, 'page' => $page );
+      } else {
+        %params_jsname = ( 'date' => $dayoff, 'id_chaines' => $chids[0].'_a_'.$chids[scalar @chids - 1], 'page' => $page );
+      }
       my $url = mkurl($CHANNEL_GRID_PAGE, \%params);
       if ($show_url) { print STDERR $url."\n"; }
       if ($save_json) { $jsname = mkjsonname("", \%params_jsname); }
@@ -935,8 +943,9 @@ sub grab_day ($) {
       $nb = $json->{'pagination'}{'nb_sur_page'} if (defined $json->{'pagination'}{'nb_sur_page'});
       update $bar if not $opt_quiet and not $show_url;
       # loop on chid
-      foreach my $chid (sort { $a <=> $b } @chids) { 
-        my @progs = grep { $_->{id_chaine} == $chid } @{$json->{'donnees'}};
+      foreach my $chid (sort { $a <=> $b } @chids) {
+        # filter chid and debut
+        my @progs = grep { $_->{id_chaine} == $chid && substr($_->{'horaire'}{'debut'},0,10) eq $dayoff } @{$json->{'donnees'}};
         if(scalar @progs) {
           grab_day_channel($chid, $url, $jsname, $dayoff, $page, \@progs);
         } elsif(!$opt_quiet) {
@@ -957,7 +966,7 @@ sub grab_day_channel($$$$$$) {
   my @lines = sort { $a->{'horaire'}{'debut'} cmp $b->{'horaire'}{'debut'} } @$progs;
 
   # flag overlapping
-  # check all, starting at end
+  # check all shows in reverse order
   my $nb = scalar @lines;
   my $start = 0;
   $lines[$nb-1]{'overlap'} = 0;
@@ -973,11 +982,6 @@ sub grab_day_channel($$$$$$) {
     } else {
       $lines[$i-1]{'overlap'} = 0;
     }
-  }
-  # if last programme ends >= 06:00:00 flag it
-  # to avoid duplicate between day and day+1
-  if($lines[$nb-1]{'horaire'}{'fin'} =~ m/(\d+):\d+:\d+$/) {
-    if( $1 >= 6) { $lines[$nb-1]{'overlap'} = 1; }
   }
 
   foreach my $line (@lines) {
