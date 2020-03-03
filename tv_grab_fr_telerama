@@ -272,6 +272,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 2.1 Utilisation de l'api v3 avec heure_debut et heure_fin
 
+2.2 retry sur l'api en cas d'erreur
+    bug fix status_line/status_code
+
 =cut
 
 use XMLTV::Usage <<END
@@ -296,7 +299,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.1 2020/02/16 12:05:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.2 2020/03/03 18:40:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -886,6 +889,15 @@ sub get_channels( $ ) {
   my $json_hash = get_page_json('init',$my_url, $jsname);
 
   my $chicon = "";
+
+  # empty json ?
+  if( !defined($json_hash->{'donnees'}{'chaines'}) ) {
+    if(!$opt_quiet) {
+          print STDERR "empty json, on $my_url\n";
+    }
+    return %channels;
+  }
+
   my @lines = @{ $json_hash->{'donnees'}{'chaines'} };
   foreach my $line ( @lines ) {
     #debug_print "Found line : " . $line . "\n";
@@ -1259,33 +1271,41 @@ sub get_page_json( $$$ ) {
   $stats{api}{total}++;
   $stats{api}{$api_name}++;
 
-  my $content = get_nice($url);
-  my $json;
-
-  # error handling
-  my $Response = $XMLTV::Get_nice::Response;
-  # api returns a 404 with json content when there is no shows
-  if(!$content && $Response->code == 404) {
-    $content = $Response->content;
-  }
+  # try 2 times;
+  my $retry = 2;
+  my ($content, $Response, $json);
+  do {
+    $content = get_nice($url);
+    # error handling
+    $Response = $XMLTV::Get_nice::Response;
+    # api returns a 404 with json content when there is no shows
+    if(!$content && $Response->code == 404) {
+      $content = $Response->content;
+    }
+    $retry--;
+    if(!$content && $retry > 0) {
+      if(!$opt_quiet) { print STDERR "Erreur ".$Response->status_line.", url: $url , retrying...\n"; }
+      sleep($Delay);
+    }
+  } until ($content || $retry == 0);
 
   if(!$content) {
     if($FailOnError) {
-      die ("Erreur ".$Response->status_line." $url");
+      die ("Erreur ".$Response->status_line.", url: $url\n");
     } else {
       $content = '{}';
-      warn ("Erreur ".$Response->status_line." $url");
+      if(!$opt_quiet) { print STDERR "Erreur ".$Response->status_line.", url: $url \n"; }
     }
   }
 
   eval {
     $json = JSON->new->utf8(1)->decode($content);
   } or do {
-    die ("malformed json on $url : ".$Response->status_code."\n");
+    die ("malformed json on $url : ".$Response->status_line."\n");
   };
 
   if ($save_json) {
-    open (JSFIC, ">$jsname") || die ("Vous ne pouvez pas créer le fichier \"$jsname\"");
+    open (JSFIC, ">$jsname") || die ("Vous ne pouvez pas créer le fichier \"$jsname\"\n");
     print JSFIC JSON->new->pretty->canonical->encode($json);
     close (JSFIC);
   }
