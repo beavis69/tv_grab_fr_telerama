@@ -275,6 +275,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 2.2 retry sur l'api en cas d'erreur
     bug fix status_line/status_code
 
+2.3 bug fix : titres qui contiennent parfois des espaces
 =cut
 
 use XMLTV::Usage <<END
@@ -299,7 +300,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.2 2020/03/03 18:40:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.3 2020/04/06 14:50:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -1009,6 +1010,7 @@ sub grab_day_channel($$$$$$) {
     if($title eq '') {
       if($line->{'soustitre'} ne '') { $title = $line->{'soustitre'}; } else { $title = 'sans titre'; }
     }
+    $title =~ s/\r|\n//g;
     my $description = "";
     $description = trim($line->{'resume'}) if ($line->{'resume'}) ;
 
