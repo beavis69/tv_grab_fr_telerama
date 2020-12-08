@@ -276,8 +276,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     bug fix status_line/status_code
 
 2.3 bug fix : titres qui contiennent parfois des espaces
-=cut
 
+2.4 bug fixes :
+    * correction warning subgenre
+    * correction progress bar
+    * taille de groupe à 24 pour eviter les erreurs de memoire coté serveurs telerama
+    * --days a 7 jours par defaut (au lieu de 11), mais on peut toujours demander 11 jours max
+    * correction caractères invalides dans la description
+=cut
 use XMLTV::Usage <<END
     $0: get French television listings in XMLTV format
     To configure AUTRES CHAINES list: $0 --configure-more-channels
@@ -300,7 +306,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.3 2020/04/06 14:50:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.4 2020/12/08 20:20:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -375,8 +381,10 @@ if ($DEBUG_CMD) {
 
 $opt_quiet  = 0;
 
-# The website is able to store at least 11 days from now
-my $default_opt_days = 11;
+# The website is able to store at least 7 days from now
+my $default_opt_days = 7;
+# but you can try to retrieve up to 11 days
+my $max_days = 11;
 
 GetOptions('days=i'     => \$opt_days,
            'help'         => \$opt_help,
@@ -410,7 +418,7 @@ my $CHANNEL_PROGRAMME_PAGE = '/v1/programmes/';
 my $ROOT_URL  = 'https://api.telerama.fr';
 
 my %stats;
-my $group_size = 32;
+my $group_size = 24;
 my $emissions_cache = 1;
 if($opt_no_optim) {
   $group_size = 1;
@@ -452,7 +460,7 @@ XMLTV::Ask::init($opt_gui);
 $opt_offset = 0 if not defined $opt_offset;
 $opt_days = $default_opt_days if not defined $opt_days;
 
-if ( (($opt_offset + $opt_days) > $default_opt_days) or ($opt_offset > $default_opt_days) ) {
+if ( (($opt_offset + $opt_days) > $max_days) or ($opt_offset > $max_days) ) {
   $opt_days = $default_opt_days - $opt_offset;
   if ($opt_days < 0) {
     $opt_offset = 0;
@@ -776,7 +784,7 @@ foreach my $chid (sort { $a <=> $b } keys %channels) {
 
 # count needed api calls
 my $nb_chans = scalar(keys %channels);
-my $to_get = int($nb_chans / $group_size + 1) * ($opt_days - $opt_offset);
+my $to_get = int($nb_chans / $group_size + 0.5) * ($opt_days - $opt_offset);
 my $bar = new XMLTV::ProgressBar('getting listings', $to_get) if not $opt_quiet and not $show_url;
 
 Date_Init('SetDate=now,UTC');
@@ -954,7 +962,7 @@ sub grab_day ($) {
       if ($save_json) { $jsname = mkjsonname("", \%params_jsname); }
       my $json = get_page_json('grille', $url, $jsname);
       $nb = $json->{'pagination'}{'nb_sur_page'} if (defined $json->{'pagination'}{'nb_sur_page'});
-      update $bar if not $opt_quiet and not $show_url;
+      if($nb < $nb_par_page) { update $bar if not $opt_quiet and not $show_url; }
       # loop on chid
       foreach my $chid (sort { $a <=> $b } @chids) {
         # filter chid and debut
@@ -1035,7 +1043,7 @@ sub grab_day_channel($$$$$$) {
 
     my $genre = $line->{'id_genre'} ? $line->{'id_genre'} : 0;
     my $genretext = $genre ? $genres[$genre] : "";
-    my $subgenre = $line->{'genre_specifique'};
+    my $subgenre = $line->{'genre_specifique'} ? lc($line->{'genre_specifique'}) : '';
     my $episode = $line->{'serie'}{'numero_episode'};
     my $season = $line->{'serie'}{'saison'};
     my $episode_text = "Episode:".$episode if ($episode);
@@ -1074,7 +1082,6 @@ sub grab_day_channel($$$$$$) {
 
     $prog{'sub-title'} = [ [ $line->{'soustitre'} ] ] if ($line->{'soustitre'});
 
-    $subgenre = lc($subgenre) if ($subgenre);
     # get genretext from uri
     if (!$genretext && defined $line->{'url'}) {
       if ($line->{'url'} =~ m%/documentaire/%) {
@@ -1092,14 +1099,14 @@ sub grab_day_channel($$$$$$) {
       }
     }
     if(!$genretext) {
-      if ($subgenre eq 'pièce de théâtre') {
+      if ($subgenre =~ m/pièce de théâtre/) {
         $genretext = "Théâtre";
       }
     }
 
     my $critic = "";
     # if casting is enable, we need another api call
-    if($opt_casting && (!$subgenre || $subgenre !~ /(animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)$/i) && ($genretext =~ /^(Film|Série|Feuilleton|Téléfilm|Théâtre)$/i)) {
+    if($opt_casting && ($subgenre eq '' || $subgenre !~ /(animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)$/i) && ($genretext =~ /^(Film|Série|Feuilleton|Téléfilm|Théâtre)$/i)) {
       my $jsname_programme = '';
       my $url_programme = mkurl($CHANNEL_PROGRAMME_PAGE.$line->{'id_programme'}, {} );
       if ($show_url) { print STDERR $url_programme."\n"; }
@@ -1215,20 +1222,20 @@ sub grab_day_channel($$$$$$) {
       if ($genretext) {
         push @{$prog{category}}, [ xmlencoding($genretext), $LANG ];
       }
-      if ($subgenre) {
+      if ($subgenre ne '') {
         push @{$prog{category}}, [ xmlencoding($subgenre), $LANG ];
       }
     } else {
 
       if ($genretext) {
         $genretext = lc($genretext);
-        if (!$subgenre) {
+        if ($subgenre eq '') {
           $subgenre = $genretext;
         } elsif ($subgenre !~ /^\Q$genretext\E/) {
           $subgenre = "$genretext : $subgenre";
         }
       }
-      if ($subgenre) {
+      if ($subgenre ne '') {
         push @{$prog{category}}, [ xmlencoding($subgenre), $LANG ];
       }
     }
@@ -1241,7 +1248,7 @@ sub grab_day_channel($$$$$$) {
       } else {
         $description = $description." - Critique : ".$critic;
       }
-      $description =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F//d;
+      $description =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F\x90//d;
 
       if ( $no_htmltags ) {
           $description =~ s/<\/?[^>]+>//g;
@@ -1303,7 +1310,9 @@ sub get_page_json( $$$ ) {
   eval {
     $json = JSON->new->utf8(1)->decode($content);
   } or do {
-    die ("malformed json on $url : ".$Response->status_line."\n");
+    my $erreur = $content;
+    $erreur =~ s/.*(Fatal error.*) on line.*/$1/sm;
+    die ("malformed json on $url\n".$Response->status_line." : ".$erreur."\n");
   };
 
   if ($save_json) {
