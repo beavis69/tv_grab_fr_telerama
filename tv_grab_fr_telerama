@@ -283,6 +283,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     * taille de groupe à 24 pour eviter les erreurs de memoire coté serveurs telerama
     * --days a 7 jours par defaut (au lieu de 11), mais on peut toujours demander 11 jours max
     * correction caractères invalides dans la description
+
+2.5 bug fix :
+   * more casting see https://github.com/zubrick/tv_grab_fr_telerama/issues/32
+
 =cut
 use XMLTV::Usage <<END
     $0: get French television listings in XMLTV format
@@ -306,7 +310,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.4 2020/12/08 20:20:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.5 2020/12/09 17:00:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -1106,7 +1110,7 @@ sub grab_day_channel($$$$$$) {
 
     my $critic = "";
     # if casting is enable, we need another api call
-    if($opt_casting && ($subgenre eq '' || $subgenre !~ /(animation|réaliste|jeunesse|téléréalité|sentimental|burlesque)$/i) && ($genretext =~ /^(Film|Série|Feuilleton|Téléfilm|Théâtre)$/i)) {
+    if($opt_casting && ($subgenre eq '' || $subgenre !~ /(animation|réaliste|jeunesse|téléréalité|feuilleton\s+sentimental|burlesque)$/i) && ($genretext =~ /^(Film|Série|Feuilleton|Téléfilm|Théâtre)$/i)) {
       my $jsname_programme = '';
       my $url_programme = mkurl($CHANNEL_PROGRAMME_PAGE.$line->{'id_programme'}, {} );
       if ($show_url) { print STDERR $url_programme."\n"; }
