@@ -290,6 +290,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 2.6 bug fix :
    * fix bad sub-title containing newlines.
 
+2.7 bug fix :
+   * fix bad $to_get calculation (causing progress bar already finished warning)
 =cut
 use XMLTV::Usage <<END
     $0: get French television listings in XMLTV format
@@ -313,7 +315,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.6 2020/12/28 09:30:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.7 2020/12/28 11:30:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -791,7 +793,7 @@ foreach my $chid (sort { $a <=> $b } keys %channels) {
 
 # count needed api calls
 my $nb_chans = scalar(keys %channels);
-my $to_get = int($nb_chans / $group_size + 0.5) * ($opt_days - $opt_offset);
+my $to_get = (int($nb_chans / $group_size) + ($nb_chans % $group_size > 0 ? 1 : 0)) * ($opt_days - $opt_offset);
 my $bar = new XMLTV::ProgressBar('getting listings', $to_get) if not $opt_quiet and not $show_url;
 
 Date_Init('SetDate=now,UTC');
