@@ -288,7 +288,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
    * more casting see https://github.com/zubrick/tv_grab_fr_telerama/issues/32
 
 2.6 bug fix :
-   * fix bab sub-title containing newlines.
+   * fix bad sub-title containing newlines.
 
 =cut
 use XMLTV::Usage <<END
