@@ -726,7 +726,7 @@ if ($mode eq 'list-channels') {
   my %seen;
   my %channels = get_channels("list_chan.json");
   die 'no channels could be found' if (scalar(keys(%channels)) == 0);
-  foreach my $ch_did (sort(keys %channels)) {
+  foreach my $ch_did (sort { $channels{$a}{name} cmp $channels{$b}{name} } (keys %channels)) {
     my $ch_xid = $channel_prefix.$ch_did.$channel_postfix;
     $writer->write_channel({ id => $ch_xid,
                              'display-name' => [ [ $channels{$ch_did}{name} ] ],
@@ -763,7 +763,7 @@ foreach (@config_lines) {
     } else {
       $chid_name = '';
     }
-    $channels{$chid} = {'name'=>$chname, 'icon'=>$chicon, 'chid_name'=>$chid_name};
+    $channels{$chid} = {'name'=>$chname, 'icon'=>$chicon, 'chid_name'=>$chid_name, 'order' => $line_num};
   } else {
     warn "$config_file:$line_num: bad line $_\n";
   }
@@ -775,7 +775,7 @@ warn "No working channels configured, so no listings\n" if not %channels;
 $stats{start} = time();
 
 # loop on channels
-foreach my $chid (sort { $a <=> $b } keys %channels) {
+foreach my $chid (sort { $channels{$a}{order} <=> $channels{$b}{order} } keys %channels) {
   my $url;
   my $i;
   my $dayoff;
@@ -953,8 +953,8 @@ sub grab_day ($) {
   my $g_deb = 0;
   my $g_end = ($group_size > $nb_chans-1) ? $nb_chans-1 : $group_size - 1;
   do {
-    my @chids = (sort { $a <=> $b } keys %channels) [$g_deb..$g_end];
-    my $chans = join(',',sort { $a <=> $b } @chids);
+    my @chids = (sort { $channels{$a}{order} <=> $channels{$b}{order} } keys %channels) [$g_deb..$g_end];
+    my $chans = join(',', @chids);
     my $page = 1;
     # loop on page if needed
     my $nb = 0;
@@ -973,7 +973,7 @@ sub grab_day ($) {
       $nb = $json->{'pagination'}{'nb_sur_page'} if (defined $json->{'pagination'}{'nb_sur_page'});
       if($nb < $nb_par_page) { update $bar if not $opt_quiet and not $show_url; }
       # loop on chid
-      foreach my $chid (sort { $a <=> $b } @chids) {
+      foreach my $chid (@chids) {
         # filter chid and debut
         my @progs = grep { $_->{id_chaine} == $chid && substr($_->{'horaire'}{'debut'},0,10) eq $dayoff } @{$json->{'donnees'}};
         if(scalar @progs) {
