@@ -296,6 +296,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 2.8 feature request :
    * channels order follows configuration file order
 
+2.9 bug fix :
+   * sometimes channelnames returned by get_channels("categories.json") is empty for some chids, use chname from config file in that case
+
+
 =cut
 use XMLTV::Usage <<END
     $0: get French television listings in XMLTV format
@@ -319,7 +323,7 @@ use warnings;
 use strict;
 
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.8 2021/05/29 11:30:00 zubrick Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 2.9 2023/01/17 19:55:00 zubrick Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -1035,7 +1039,15 @@ sub grab_day_channel($$$$$$) {
     my $description = "";
     $description = trim($line->{'resume'}) if ($line->{'resume'}) ;
 
-    my $chname = $channelnames[$chid];
+    my $chname;
+    # sometimes channelnames returned by get_channels("categories.json") is empty for some chids
+    # use chname from config file in that case
+    if(defined $channelnames[$chid]) {
+      $chname = $channelnames[$chid];
+    } else {
+      $chname = $channels{$chid}{'name'};
+    }
+
     my $imgurl= $line->{'vignette'}{'grande'};
 
     $startdate = utc_offset( $startdate, "+0100");
@@ -1186,11 +1198,11 @@ sub grab_day_channel($$$$$$) {
     $prog{'new'} = {} if ($line->{'flags'}{'est_direct'});
 
     # skip crypted shows for Canal+ or Paris Premiere
-    if ( ($chname =~ m/Canal+/) && ($crypted == 1) ) {
-      next;
-    }
-    if ( ($chname =~ m/Paris Première/) && ($crypted == 1) ) {
-      next;
+    if($crypted) {
+      if ( $chname =~ m/Canal+/ ||
+           $chname =~ m/Paris Première/ ) {
+        next;
+      }
     }
 
 
