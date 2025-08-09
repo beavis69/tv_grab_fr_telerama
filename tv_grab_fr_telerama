@@ -299,6 +299,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
    * plus de filtrage des emissions cryptees
    * version beta
 
+3.1 changement des urls :
+   * utilisation des urls https://apps.telerama.fr
+   * plus de filtrage des emissions cryptees
+   * version beta
+   * fix progress bar
+
 =cut
 use XMLTV::Usage <<END
     $0: get French television listings in XMLTV format
@@ -321,7 +327,7 @@ END
 use warnings;
 use strict;
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.0 2025/08/09 19:55:00 beavis69 Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.1 2025/08/09 19:56:00 beavis69 Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -807,6 +813,7 @@ my %emissions;
 # loop on days
 for (my $offset=$opt_offset; $offset < $opt_offset+$opt_days; $offset++ ) {
   grab_day($offset);
+ 
 }
 
 $writer->end();
@@ -953,7 +960,6 @@ sub grab_day ($) {
   if ($show_url) { print STDERR $url."\n"; }
   if ($save_json) { $jsname = mkjsonname("", \%params); }
   my $json = get_page_json('grille', $url, $jsname);
-  update $bar if not $opt_quiet and not $show_url;
   # loop on chid
   foreach my $chid (@chids) {
     update $bar if not $opt_quiet and not $show_url;
