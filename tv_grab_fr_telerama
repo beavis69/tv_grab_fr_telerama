@@ -13,7 +13,7 @@ tv_grab_fr_telerama - Grab TV listings for France.
  To configure:
    tv_grab_fr_telerama --configure [--config-file FILE]
  To grab listings:
-   tv_grab_fr_teleram [--config-file FILE] [--output FILE] [--days N]
+   tv_grab_fr_telerama [--config-file FILE] [--output FILE] [--days N]
         [--offset N] [--quiet]
         [--ch_prefix prefix] [--ch_postfix postfix]
         [--no_episodedesc] [--no_aggregatecat]
@@ -21,7 +21,7 @@ tv_grab_fr_telerama - Grab TV listings for France.
         [--casting]
         [--list-channels]
  To show capabilities:
-   tv_grab_fr_teleram --capabilities
+   tv_grab_fr_telerama --capabilities
  To show version:
    tv_grab_fr_telerama --version
  Help:
@@ -298,6 +298,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 3.2 fix --configure
 
+3.3 fix utc_offset
+
 =cut
 use XMLTV::Usage <<END
     $0: get French television listings in XMLTV format
@@ -320,7 +322,7 @@ END
 use warnings;
 use strict;
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.2 - 2025/08/10 10:15:00 beavis69 Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.3 - 2025/08/10 19:20:00 beavis69 Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -438,7 +440,7 @@ $XMLTV::Get_nice::ua = LWP::UserAgent->new(
   requests_redirectable => ['GET', 'POST','HEAD'],
   max_redirect => 3,
   keep_alive => 1,
-  agent=>'TLR/4.11 (free; fr; ABTest 322) Android/13/33 (tablet;  Galaxy Tab S6 Samsung Device)'
+  agent=>'TLR/4.11 (free; fr; ABTest 322) Android/13/33 (tablet; Galaxy Tab S6 Samsung Device)'
 );
 $XMLTV::Get_nice::ua->default_header(
   'lmd-sys-name'    => 'Android',
@@ -831,8 +833,10 @@ sub grab_day_channel($$$$$$) {
   foreach my $line (@lines) {
     my $startdate = $line->{'start_date'};
     my $enddate = $line->{'end_date'};
-    $startdate =~ tr/:\$\ -//d;
-    $enddate =~ tr/:\$\ -//d;
+    $startdate =~ s/:|-|T|\.000//g;
+    $enddate =~ s/:|-|T|\.000//g;
+    $startdate =~ s/\+/ +/g;
+    $enddate =~ s/\+/ +/g;
 
     my $title = $line->{'title'};
     my $description = '';
@@ -853,8 +857,6 @@ sub grab_day_channel($$$$$$) {
       $imgurl =~ s/\{\{width\}\}x\{\{height\}\}/123x82/;
     }
 
-    $startdate = utc_offset( $startdate, "+0100");
-    $enddate  = utc_offset( $enddate , "+0100");
     my %prog = (channel  => $channels{$chid}{chid_name},
                 title       => [ [ $title ] ], # lang unknown
                 start       => $startdate,
