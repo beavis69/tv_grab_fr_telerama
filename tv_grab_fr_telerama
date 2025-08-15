@@ -357,6 +357,9 @@ use Data::Dumper;
 use Date::Parse;
 use Digest::HMAC_SHA1 qw(hmac_sha1_hex);
 use open ':std', ':encoding(UTF-8)';
+use Mojo::DOM;
+# pour la suppression des accents
+use Unicode::Normalize;
 
 # subs
 sub get_channels($);
@@ -910,7 +913,7 @@ sub grab_day_channel($$$$$$) {
     my $critic = "";
     # if casting is enable, we need another api call
     # TODO : parse html
-    if($opt_casting && ($genretext =~ /^(Film|Serie|Telefilm)$/i) && 1==0) {
+    if($opt_casting && ($genretext =~ /^(Film|Serie|Telefilm)$/i)) {
       my $jsname_programme = '';
       my $id;
       if( $deeplink =~ /&id=([^&]+)/) {
@@ -930,46 +933,93 @@ sub grab_day_channel($$$$$$) {
         $json_p = get_page_json('casting', $url_programme, $jsname_programme);
         $emissions{$line->{id}} = $json_p if $emissions_cache;
       }
-      # todo
-      my @cast = @{ $json_p->{donnees}[0]->{intervenants} } if ($json_p->{donnees} && $json_p->{donnees}[0]->{intervenants} );
-      #if(scalar(@cast) == 0) { print $genretext." ".$subgenre."\n"; }
-      foreach my $people (@cast) {
-        my $ctype = $people->{'libelle'};
-        my $roleid = $people->{'id_role'};
-        my $cname = $people->{'nom'};
-        my $role;
-        $cname = "$people->{'prenom'} $cname" if ($people->{'prenom'});
-        $role = $people->{'role'} if ($people->{'role'});
-        next unless ($cname);
-        if ($ctype =~ m/Acteur/ || $ctype =~ m/Interpr.+te/ ) {
-          push @{$prog{credits}{actor}}, [$cname,$role];
-        } elsif ($ctype =~ m/R.+alisateur/ || $ctype =~ m/Metteur en Sc.+ne/) {
-          push @{$prog{credits}{director}}, $cname;
-        } elsif ($ctype =~ m/Pr.+sentateur/ || $ctype =~ m/pr.+sentateur/) {
-          push @{$prog{credits}{presenter}}, $cname;
-        } elsif ($ctype =~ m/Musique/) {
-          push @{$prog{credits}{composer}}, $cname;
-        }  elsif ($ctype =~ m/Cr.+ateur/ || $ctype =~ m/Auteur/ || $ctype =~ m/Sc.+nariste/ || $ctype =~ m/Sc.+nario/ || $ctype =~ m/Dialogue/) {
-          push @{$prog{credits}{writer}}, $cname;
+
+      my $content = $json_p->{'templates'}->{'raw_content'}->{'content'};
+      $content = '' if !$content;
+      if($content && $content =~ m/\"note_t\": *(\d)/ig) {  
+        push @{$prog{'star-rating'}}, [ $1."/5", "Telerama" ];
+      }
+
+      my $document = Mojo::DOM->new($content);
+      my $synopsis = $document->at('section#article_synopsis');
+      $synopsis->find('p')->each(sub {
+        $description .= "\n" if $description;
+        if ($no_htmltags) {
+          $description .= trim($_->all_text);
         } else {
-          if ($roleid eq "1") {
-            push @{$prog{credits}{actor}}, $cname;
-          } elsif ($roleid eq "2" || $roleid eq "12") {
-            push @{$prog{credits}{director}}, $cname;
-          } elsif ($roleid eq "3") {
-            push @{$prog{credits}{writer}}, $cname;
-          } elsif ($roleid eq "4") {
-            push @{$prog{credits}{composer}}, $cname;
-          } else {
-            push @{$prog{credits}{guest}}, $cname;
-          }
+          $description .= trim($_->content);
         }
-      }
-      if ($line->{'possede_critique'} == 1) {
-        $critic = trim($json_p->{'donnees'}[0]->{critique}) if($json_p->{'donnees'}[0]->{critique}) ;
-      } elsif ($line->{'possede_notule'} == 1) {
-        $critic = trim($json_p->{'donnees'}[0]->{notule}) if ($json_p->{'donnees'}[0]->{notule}) ;
-      }
+      }) if $synopsis;
+
+      my $casting = $document->find('section#article_casting ul > li.sheet__info-item');
+      $casting->each(sub {
+        my $actor = $_->at('p[class~="sheet__info-item-label"][class~="sheet__info-item-label--casting"]')->all_text;
+        my $role = $_->at('p[class~="sheet__info-item-value"]')->all_text;
+        push @{$prog{credits}{actor}}, [$actor,$role];
+      });
+
+      $casting = $document->find('section#article_infos ul > li.sheet__info-item');
+      $casting = $document->find('section[class~="sheet__info-container--no-bb"] ul > li.sheet__info-item') if (!$casting || $casting->size < 1) ;
+      my (%directors, %writers, %presenters, %composers, %guests, %producers, %commentators, %adapters);
+      $casting->each(sub {
+        my $ctype = NFKD($_->at('p[class~="sheet__info-item-label"]')->all_text);
+        # Suppression des caractères diacritiques
+        $ctype =~ s/\p{NonspacingMark}//g;
+        my $value = $_->at('p[class~="sheet__info-item-value"]')->all_text;
+        my @names = split(/, /, $value);
+        if ($ctype =~ m/Realisateur/i || $ctype =~ m/Metteur en Scene/i) {
+          foreach my $name (@names) {
+            push @{$prog{credits}{director}}, $name if (!exists $directors{$name});
+            $directors{$name} = 1;
+          }
+        } elsif ($ctype =~ m/presentateur/i) {
+          foreach my $name (@names) {
+            push @{$prog{credits}{presenter}}, $name if (!exists $presenters{$name});
+            $presenters{$name} = 1;
+          }
+        } elsif ($ctype =~ m/Musique/i) {
+          foreach my $name (@names) {
+            push @{$prog{credits}{composer}}, $name if (!exists $composers{$name});
+            $composers{$name} = 1;
+          }
+        } elsif ($ctype =~ m/Createur/i || $ctype =~ m/Auteur/i || $ctype =~ m/Scenariste/i || $ctype =~ m/Scenario/i || $ctype =~ m/Dialogue/i) {
+          foreach my $name (@names) {
+            push @{$prog{credits}{writer}}, $name if (!exists $writers{$name});
+            $writers{$name} = 1;
+          }
+        } elsif ($ctype =~ m/Invite/i ) {
+          foreach my $name (@names) {
+            push @{$prog{credits}{guest}}, $name if (!exists $guests{$name});
+            $guests{$name} = 1;
+          }
+        } elsif ($ctype =~ m/Commentateur/i || $ctype =~ m/Commentaire/i) {
+          foreach my $name (@names) {
+            push @{$prog{credits}{commentator}}, $name if (!exists $commentators{$name});
+            $commentators{$name} = 1;
+          }
+        } elsif ($ctype =~ m/Adaptation/i) {
+          foreach my $name (@names) {
+            push @{$prog{credits}{adapter}}, $name if (!exists $adapters{$name});
+            $adapters{$name} = 1;
+          }
+        } elsif ($ctype =~ m/Pays/i || $ctype =~ m/Origine/i) {
+          my @countries = split(/ - /, $value);
+          foreach my $country (@countries) {
+            push @{$prog{country}}, [ xmlencoding($country), $LANG ];
+          }
+        } elsif ($ctype =~ m/Sortie/) {
+          $prog{'date'} = $value;
+        } elsif ($ctype =~ m/Genre/) {
+          #todo
+        }
+      });
+
+      # todo
+      # if ($line->{'possede_critique'} == 1) {
+      #   $critic = trim($json_p->{'donnees'}[0]->{critique}) if($json_p->{'donnees'}[0]->{critique}) ;
+      # } elsif ($line->{'possede_notule'} == 1) {
+      #   $critic = trim($json_p->{'donnees'}[0]->{notule}) if ($json_p->{'donnees'}[0]->{notule}) ;
+      # }
     }
 
     #$prog{'date'} = $line->{'annee_realisation'} if ($line->{'annee_realisation'});
