@@ -910,9 +910,8 @@ sub grab_day_channel($$$$$$) {
     }
     $prog{length} = str2time($line->{'end_date'}) - str2time($line->{'start_date'});
 
-    my $critic = "";
     # if casting is enable, we need another api call
-    # TODO : parse html
+    # casting parsing start
     if($opt_casting && ($genretext =~ /^(Film|Serie|Telefilm)$/i)) {
       my $jsname_programme = '';
       my $id;
@@ -1013,17 +1012,8 @@ sub grab_day_channel($$$$$$) {
           #todo
         }
       });
-
-      # todo
-      # if ($line->{'possede_critique'} == 1) {
-      #   $critic = trim($json_p->{'donnees'}[0]->{critique}) if($json_p->{'donnees'}[0]->{critique}) ;
-      # } elsif ($line->{'possede_notule'} == 1) {
-      #   $critic = trim($json_p->{'donnees'}[0]->{notule}) if ($json_p->{'donnees'}[0]->{notule}) ;
-      # }
     }
-
-    #$prog{'date'} = $line->{'annee_realisation'} if ($line->{'annee_realisation'});
-    #$prog{country} = [[$line->{'libelle_nationalite'}]] if ($line->{'libelle_nationalite'});
+    # end of casting parsing
 
     $prog{premiere} = [] if ($line->{'is_inedit'} eq JSON::true);
     $prog{'previously-shown'} = {} if ($line->{'is_replay'} eq JSON::true);
@@ -1092,15 +1082,7 @@ sub grab_day_channel($$$$$$) {
     }
 
     if ( $description ne "" ) {
-      if (!$critic) {
-        ;# Nothing to do
-      } elsif ($critic eq $description) {
-        $description = "Critique : ".$critic;
-      } else {
-        $description = $description." - Critique : ".$critic;
-      }
       $description =~ tr/\x00-\x08\x0B\x0C\x0E-\x1F\x90//d;
-
       if ( $no_htmltags ) {
           $description =~ s/<\/?[^>]+>//g;
       }
