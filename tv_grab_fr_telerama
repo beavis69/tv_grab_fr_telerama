@@ -19,6 +19,8 @@ tv_grab_fr_telerama - Grab TV listings for France.
         [--no_episodedesc] [--no_aggregatecat]
         [--show_url] [--save_json]
         [--casting]
+        [--tsize widthxheight, exemple 123x82 for small thumbnails, defaults to 952x634]
+        [--tsize 123x82 defaults to 952x634]
         [--list-channels]
  To show capabilities:
    tv_grab_fr_telerama --capabilities
@@ -98,6 +100,7 @@ Contributed by patrick-g  patrickg<dot>github<at>free<dot>fr
 Contributed by hamelg
 Contributed by fgouget
 Contributed by beavis69
+Contributed by HvB (https://github.com/HvB)
 
 =head1 LICENSE
 
@@ -306,6 +309,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 3.6 bigger images : 952x634
 
+3.7 casting html parsing thanks to HvB
+    added --tsize to choose thumbnails size (default is 952x634) recommended small size is 123x82
+
 =cut
 use XMLTV::Usage <<END
     $0: get French television listings in XMLTV format
@@ -318,6 +324,7 @@ use XMLTV::Usage <<END
     [--show_url] [--save_json]
     [--no_htmltags]
     [--casting]
+    [--tsize widthxheight, exemple 123x82 for small thumbnails, defaults to 952x634]
     prefix, postfix : strings, "" for null string
     To show capabilities : $0 --capabilities
     To show version      : $0 --version
@@ -328,7 +335,7 @@ END
 use warnings;
 use strict;
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.6 - 2025/08/13 23:46:00 beavis69 Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.7 - 2025/08/21 17:30:00 beavis69 Exp $ ';
 #use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
@@ -395,7 +402,7 @@ XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux') # cache on disk
 my ($opt_days, $opt_help, $opt_output, $opt_offset, $opt_gui, $opt_quiet,
     $opt_list_channels, $opt_config_file, $opt_configure, $opt_logo_path,
     $no_episodedesc, $no_aggregatecat, $show_url, $save_json, 
-    $no_htmltags, $opt_casting, $opt_no_optim );
+    $no_htmltags, $opt_casting, $opt_tsize );
 
 # debug
 if ($DEBUG_CMD) {
@@ -424,7 +431,7 @@ GetOptions('days=i'     => \$opt_days,
            'save_json' => \$save_json,
            'no_htmltags' => \$no_htmltags,
            'casting' => \$opt_casting,
-           ##Gestion des channels non declares dans les listes "officielles"
+           'tsize=s' => \$opt_tsize,
            'delay=i' => \$Delay
           )
   or usage(0);
@@ -438,10 +445,6 @@ my $ROOT_URL  = 'https://apps.telerama.fr';
 my %stats;
 my $group_size = 1;
 my $emissions_cache = 1;
-if($opt_no_optim) {
-  $group_size = 1;
-  $emissions_cache = 0;
-}
 $stats{cache_casting} = 0;
 
 # use keep-alive to avoid useless ssl handshakes !
@@ -478,6 +481,10 @@ XMLTV::Ask::init($opt_gui);
 # The options can be used, but we default them if not set.
 $opt_offset = 0 if not defined $opt_offset;
 $opt_days = $default_opt_days if not defined $opt_days;
+$opt_tsize = q{} if not defined $opt_tsize;
+if(!($opt_tsize =~ m/^\d+x\d+$/)) {
+  $opt_tsize = '952x634';
+}
 
 if ( (($opt_offset + $opt_days) > $max_days) or ($opt_offset > $max_days) ) {
   $opt_days = $default_opt_days - $opt_offset;
@@ -862,7 +869,7 @@ sub grab_day_channel($$$$$$) {
     my $imgurl;
     if(defined($line->{'illustration'}{'url'})) {
       $imgurl = $line->{'illustration'}{'url'};
-      $imgurl =~ s/\{\{width\}\}x\{\{height\}\}/952x634/;
+      $imgurl =~ s/\{\{width\}\}x\{\{height\}\}/$opt_tsize/;
     }
 
     my %prog = (channel  => $channels{$chid}{chid_name},
