@@ -20,7 +20,6 @@ tv_grab_fr_telerama - Grab TV listings for France.
         [--show_url] [--save_json]
         [--casting]
         [--tsize widthxheight, exemple 123x82 for small thumbnails, defaults to 952x634]
-        [--tsize 123x82 defaults to 952x634]
         [--list-channels]
  To show capabilities:
    tv_grab_fr_telerama --capabilities
