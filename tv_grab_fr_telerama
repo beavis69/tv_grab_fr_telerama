@@ -16,7 +16,7 @@ tv_grab_fr_telerama - Grab TV listings for France.
    tv_grab_fr_telerama [--config-file FILE] [--output FILE] [--days N]
         [--offset N] [--quiet]
         [--ch_prefix prefix] [--ch_postfix postfix]
-        [--no_episodedesc] [--no_aggregatecat]
+        [--no_episodedesc]
         [--show_url] [--save_json]
         [--casting]
         [--tsize widthxheight, exemple 123x82 for small thumbnails, defaults to 952x634]
@@ -319,7 +319,7 @@ use XMLTV::Usage <<END
     To grab listings: tv_grab_fr_telerama [--config-file FILE] [--output FILE] [--days N]
     [--offset N] [--quiet]
     [--ch_prefix prefix] [--ch_postfix postfix] [--delay N]
-    [--no_episodedesc] [--no_aggregatecat]
+    [--no_episodedesc]
     [--show_url] [--save_json]
     [--no_htmltags]
     [--casting]
@@ -335,7 +335,6 @@ use warnings;
 use strict;
 use utf8;
 use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.7 - 2025/08/21 17:30:00 beavis69 Exp $ ';
-#use XMLTV::Capabilities qw/baseline manualconfig cache/;
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
 use Getopt::Long;
@@ -357,14 +356,12 @@ use LWP::Simple;
 use LWP::UserAgent;
 use POSIX;
 use Encode;
-#use Encode::Detect;
 use JSON;
 use Data::Dumper;
 use Date::Parse;
 use Digest::HMAC_SHA1 qw(hmac_sha1_hex);
 use open ':std', ':encoding(UTF-8)';
 use Mojo::DOM;
-# pour la suppression des accents
 use Unicode::Normalize;
 
 # subs
@@ -374,6 +371,7 @@ sub grab_day_channel($$$$$$);
 sub debug_print(@);
 sub get_page_json($$$);
 sub date_to_num($);
+sub deprecated($);
 
 #***************************************************************************
 # Main declarations
@@ -400,8 +398,8 @@ XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux') # cache on disk
 
 my ($opt_days, $opt_help, $opt_output, $opt_offset, $opt_gui, $opt_quiet,
     $opt_list_channels, $opt_config_file, $opt_configure, $opt_logo_path,
-    $no_episodedesc, $no_aggregatecat, $show_url, $save_json, 
-    $no_htmltags, $opt_casting, $opt_tsize );
+    $no_episodedesc, $show_url, $save_json,
+    $no_htmltags, $opt_casting, $opt_tsize, $no_aggregatecat);
 
 # debug
 if ($DEBUG_CMD) {
@@ -426,12 +424,15 @@ GetOptions('days=i'     => \$opt_days,
            'list-channels' => \$opt_list_channels,
            'ch_prefix=s'  => \$channel_prefix,
            'ch_postfix=s'  => \$channel_postfix,
+           'no_episodedesc' => \$no_episodedesc,
            'show_url' => \$show_url,
            'save_json' => \$save_json,
            'no_htmltags' => \$no_htmltags,
            'casting' => \$opt_casting,
            'tsize=s' => \$opt_tsize,
-           'delay=i' => \$Delay
+           'delay=i' => \$Delay,
+           # deprecated options
+           'no_aggregatecat' => \$no_aggregatecat
           )
   or usage(0);
 
@@ -476,6 +477,14 @@ die 'Cannot get more than one day before current day' if (defined $opt_offset &&
 usage(1) if $opt_help;
 
 XMLTV::Ask::init($opt_gui);
+
+# deprecated options
+deprecated("--no_aggregatecat") if $no_aggregatecat;
+
+sub deprecated($) {
+  my $option=shift;
+  print STDERR "$option is depecrated, and has no more effect, it will be removed in future release\n";
+}
 
 # The options can be used, but we default them if not set.
 $opt_offset = 0 if not defined $opt_offset;
