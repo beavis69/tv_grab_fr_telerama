@@ -7,10 +7,16 @@ Le contenu n'étant pas généré par l'application mais récupéré sur l'api u
 * application android: https://play.google.com/store/apps/details?id=com.telerama.fr</br>
 * application iOS: https://itunes.apple.com/fr/app/programme-tv-telerama/id324160932?mt=8</br>
 
-Le site ( https://television.telerama.fr/tele/grille ) peut afficher des données differentes mais ce grabber n'utilise pas les données du site, inutile de nous contacter dans ce cas là.
+Le site https://television.telerama.fr/ peut afficher des données differentes mais ce grabber n'utilise pas les données du site, inutile de nous contacter dans ce cas là.
 <b>Merci de vérifier avant d'ouvrir un ticket</b>
 
-## Nouvelle API telerama
+## Changelog
+
+<b>Depuis la version 3.7</b>
+Le grabber nécéssite maintenant l'installation du module Mojo::Dom
+Il est packagé dans les distributions récentes sous le nom libmojolicious-perl
+Si n'est pas packagé pour votre distribution, utiliser cpanm pour installer ( https://www.cpan.org/modules/INSTALL.html )
+
 <b>Depuis la version 1.22</b> La source de données du grabber est l'api utilisée par les application mobiles.
 
 les numéro des chaînes n'étant pas les mêmes, il est nécessaire de refaire un
