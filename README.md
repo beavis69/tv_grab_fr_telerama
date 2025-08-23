@@ -14,8 +14,10 @@ Le site https://television.telerama.fr/ peut afficher des données differentes m
 
 <b>Depuis la version 3.7</b>
 Le grabber nécéssite maintenant l'installation du module Mojo::Dom
+
 Il est packagé dans les distributions récentes sous le nom libmojolicious-perl
-Si n'est pas packagé pour votre distribution, utiliser cpanm pour installer ( https://www.cpan.org/modules/INSTALL.html )
+
+S'il n'est pas packagé pour votre distribution, utiliser cpanm pour installer ( https://www.cpan.org/modules/INSTALL.html )
 
 <b>Depuis la version 1.22</b> La source de données du grabber est l'api utilisée par les application mobiles.
 
