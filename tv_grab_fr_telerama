@@ -14,13 +14,6 @@ tv_grab_fr_telerama - Grab TV listings for France.
    tv_grab_fr_telerama --configure [--config-file FILE]
  To grab listings:
    tv_grab_fr_telerama [--config-file FILE] [--output FILE] [--days N]
-        [--offset N] [--quiet]
-        [--ch_prefix prefix] [--ch_postfix postfix]
-        [--no_episodedesc]
-        [--show_url] [--save_json]
-        [--casting]
-        [--tsize widthxheight, exemple 123x82 for small thumbnails, defaults to 952x634]
-        [--list-channels]
  To show capabilities:
    tv_grab_fr_telerama --capabilities
  To show version:
@@ -322,7 +315,7 @@ use XMLTV::Usage <<END
     [--no_episodedesc]
     [--show_url] [--save_json]
     [--no_htmltags]
-    [--casting]
+    [--casting] retrieve casting,synopsys and various details about films/series/telefilms, can be really long (adds 1 http request per show).
     [--tsize widthxheight, exemple 123x82 for small thumbnails, defaults to 952x634]
     prefix, postfix : strings, "" for null string
     To show capabilities : $0 --capabilities
@@ -483,7 +476,7 @@ deprecated("--no_aggregatecat") if $no_aggregatecat;
 
 sub deprecated($) {
   my $option=shift;
-  print STDERR "$option is depecrated, and has no more effect, it will be removed in future release\n";
+  print STDERR "$option is depecrated, and has no more effect, it will be removed in future releases\n";
 }
 
 # The options can be used, but we default them if not set.
