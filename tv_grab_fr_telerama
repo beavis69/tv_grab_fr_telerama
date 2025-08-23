@@ -883,8 +883,16 @@ sub grab_day_channel($$$$$$) {
                 stop         => $enddate
                );
 
-    my $genretext = $line->{'filter_type'};
-    my $subgenre = $line->{'type'};
+    
+    my $genretext = lc($line->{'filter_type'});
+    my $subgenre = lc($line->{'type'});
+    # see https://github.com/beavis69/tv_grab_fr_telerama/issues/48
+    if ($subgenre ne $genretext) {
+      push @{$prog{category}}, [ xmlencoding($subgenre), $LANG ];
+    } else {
+      push @{$prog{category}}, [ xmlencoding($genretext), $LANG ];
+    }
+
     my $deeplink = $line->{'deeplink'};
     my $episode;
     my $season;
@@ -1070,27 +1078,6 @@ sub grab_day_channel($$$$$$) {
       }
       $epstring .= ".";
       push @{$prog{'episode-num'}}, [$epstring,"xmltv_ns"];
-    }
-
-    if ($no_aggregatecat) {
-      if ($genretext) {
-        push @{$prog{category}}, [ xmlencoding($genretext), $LANG ];
-      }
-      if ($subgenre ne '') {
-        push @{$prog{category}}, [ xmlencoding($subgenre), $LANG ];
-      }
-    } else {
-      if ($genretext) {
-        $genretext = lc($genretext);
-        if ($subgenre eq '') {
-          $subgenre = $genretext;
-        } elsif ($subgenre !~ /^\Q$genretext\E/) {
-          $subgenre = "$genretext : $subgenre";
-        }
-      }
-      if ($subgenre ne '') {
-        push @{$prog{category}}, [ xmlencoding($subgenre), $LANG ];
-      }
     }
 
     if ( $description ne "" ) {
