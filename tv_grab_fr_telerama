@@ -308,6 +308,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     remise en place de l'option no_episodedesc
     --help mis à jour pour refleter ces modifications
 
+3.9  meilleurs gestions des categogies #48
+     suppression des html_entities #51
 =cut
 use XMLTV::Usage <<END
     $0: get French television listings in XMLTV format
@@ -331,7 +333,7 @@ END
 use warnings;
 use strict;
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.8 - 2025/08/23 10:47:00 beavis69 Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.9 - 2025/08/23 12:18:00 beavis69 Exp $ ';
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
 use Getopt::Long;
@@ -360,6 +362,7 @@ use Digest::HMAC_SHA1 qw(hmac_sha1_hex);
 use open ':std', ':encoding(UTF-8)';
 use Mojo::DOM;
 use Unicode::Normalize;
+use HTML::Entities;
 
 # subs
 sub get_channels($);
@@ -964,12 +967,11 @@ sub grab_day_channel($$$$$$) {
       $synopsis->find('p')->each(sub {
         $description .= "\n" if $description;
         if ($no_htmltags) {
-          $description .= trim($_->all_text);
+          $description .= decode_entities(trim($_->all_text));
         } else {
-          $description .= trim($_->content);
+          $description .= decode_entities(trim($_->content));
         }
       }) if $synopsis;
-
       my $casting = $document->find('section#article_casting ul > li.sheet__info-item');
       $casting->each(sub {
         my $actor = $_->at('p[class~="sheet__info-item-label"][class~="sheet__info-item-label--casting"]')->all_text;
