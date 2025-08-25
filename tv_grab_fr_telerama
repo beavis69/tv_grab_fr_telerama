@@ -67,11 +67,9 @@ B<--version> Show the version of the grabber.
 
 B<--help> Print a help message and exit.
 
-B<--delay I> Règle le delai maximum I en secondes entre 2 requetes au serveur. Defaut 2
+B<--delay I> Règle le delai maximum I en secondes entre 2 requetes au serveur. Defaut 5
 
 B<--no_episodedesc> n'inclut pas la description des épisodes dans le fichier genere.
-
-B<--no_aggregatecat> n'aggrege pas les multiples categories d'un programme en une seule.
 
 B<--show_url> Affiche l'URL des pages de programmes téléchargées.
 
@@ -310,20 +308,28 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 3.9  meilleurs gestions des categogies #48
      suppression des html_entities #51
+
+3.10
+  * ajout de l'option --casting_cat pour pouvoir choisir les categories, par defaut film,telefilm
+  * si (days + offset) > 9 jours, affiche un message ne fait rien. #53
+  * désactivation du cache %emissions qui ne sert à rien (< 1% d'efficacité).
+  * correction bug bar progress quand --offset est utilisé
+
 =cut
 use XMLTV::Usage <<END
-    $0: get French television listings in XMLTV format
+$0: get French television listings in XMLTV format
     To configure: $0 --configure [--config-file FILE]
     To list all channels $0 --list-channels
     To grab listings: tv_grab_fr_telerama [--config-file FILE] [--output FILE] [--days N]
     [--offset N] [--quiet]
-    [--ch_prefix prefix] [--ch_postfix postfix] [--delay N]
+    [--ch_prefix prefix] [--ch_postfix postfix] prefix, postfix : strings, "" for null string
     [--no_episodedesc]
     [--show_url] [--save_json]
     [--no_htmltags]
-    [--casting] retrieve casting,synopsys and various details about films/series/telefilms, can be really long (adds 1 http request per show).
+    [--casting] retrieve casting,synopsys and various details about films/telefilm, can be really long (adds 1 http request per show).
+    [--casting_cat] list of categories separated by comma for which the grabber will make and api call
+                    to retrieve casting/synopsys infos, defaults to film,telefilm
     [--tsize widthxheight, exemple 123x82 for small thumbnails, defaults to 952x634]
-    prefix, postfix : strings, "" for null string
     To show capabilities : $0 --capabilities
     To show version      : $0 --version
     To view help         : $0 --help
@@ -333,7 +339,7 @@ END
 use warnings;
 use strict;
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.9 - 2025/08/23 12:18:00 beavis69 Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.10 - 2025/08/26 00:35:00 beavis69 Exp $ ';
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
 use Getopt::Long;
@@ -398,7 +404,7 @@ XMLTV::Memoize::check_argv('XMLTV::Get_nice::get_nice_aux') # cache on disk
 
 my ($opt_days, $opt_help, $opt_output, $opt_offset, $opt_gui, $opt_quiet,
     $opt_list_channels, $opt_config_file, $opt_configure, $opt_logo_path,
-    $no_episodedesc, $show_url, $save_json,
+    $no_episodedesc, $show_url, $save_json, $opt_casting_cat,
     $no_htmltags, $opt_casting, $opt_tsize, $no_aggregatecat);
 
 # debug
@@ -408,10 +414,10 @@ if ($DEBUG_CMD) {
 
 $opt_quiet  = 0;
 
-# The website is able to store at least 7 days from now
+# The api is able to store at least 7 days from now
 my $default_opt_days = 7;
-# but you can try to retrieve up to 11 days
-my $max_days = 11;
+# but you can try to retrieve up to 9 days
+my $max_days = 9;
 
 GetOptions('days=i'     => \$opt_days,
            'help'         => \$opt_help,
@@ -429,6 +435,7 @@ GetOptions('days=i'     => \$opt_days,
            'save_json' => \$save_json,
            'no_htmltags' => \$no_htmltags,
            'casting' => \$opt_casting,
+           'casting_cat=s' => \$opt_casting_cat,
            'tsize=s' => \$opt_tsize,
            'delay=i' => \$Delay,
            # deprecated options
@@ -443,8 +450,7 @@ my $CHANNEL_PROGRAMME_PAGE = '/tlr/v1/free-android-tablet/element';
 my $ROOT_URL  = 'https://apps.telerama.fr';
 
 my %stats;
-my $group_size = 1;
-my $emissions_cache = 1;
+my $emissions_cache = 0;
 $stats{cache_casting} = 0;
 
 # use keep-alive to avoid useless ssl handshakes !
@@ -490,21 +496,14 @@ sub deprecated($) {
 $opt_offset = 0 if not defined $opt_offset;
 $opt_days = $default_opt_days if not defined $opt_days;
 $opt_tsize = q{} if not defined $opt_tsize;
+$opt_casting_cat = 'film,telefilm' if not defined $opt_casting_cat;
 if(!($opt_tsize =~ m/^\d+x\d+$/)) {
   $opt_tsize = '952x634';
 }
 
 if ( (($opt_offset + $opt_days) > $max_days) or ($opt_offset > $max_days) ) {
-  $opt_days = $default_opt_days - $opt_offset;
-  if ($opt_days < 0) {
-    $opt_offset = 0;
-    $opt_days = $default_opt_days;
-  }
-  say <<END
-        The website does not handle more than $default_opt_days days.
-        So the grabber is now configure with --offset $opt_offset --days $opt_days
-END
-    ;
+  say("The api does not handle more than $max_days days.");
+  exit;
 }
 
 #***************************************************************************
@@ -726,7 +725,7 @@ foreach my $chid (sort { $channels{$a}{order} <=> $channels{$b}{order} } keys %c
 
 # count needed api calls
 my $nb_chans = scalar(keys %channels);
-my $to_get = (int($nb_chans / $group_size) + ($nb_chans % $group_size > 0 ? 1 : 0)) * ($opt_days - $opt_offset);
+my $to_get = $opt_days;
 my $bar = new XMLTV::ProgressBar('getting listings', $to_get) if not $opt_quiet and not $show_url;
 
 Date_Init('SetDate=now,UTC');
@@ -807,9 +806,9 @@ sub grab_day ($) {
   if ($show_url) { print STDERR $url."\n"; }
   if ($save_json) { $jsname = mkjsonname("", \%params); }
   my $json = get_page_json('grille', $url, $jsname);
+  update $bar if not $opt_quiet and not $show_url;
   # loop on chid
   foreach my $chid (@chids) {
-    update $bar if not $opt_quiet and not $show_url;
     # filter chid
     if(defined($json->{'channels'}{$chid})) {
       my $progs = $json->{'channels'}{$chid}{'broadcasts'};
@@ -935,7 +934,8 @@ sub grab_day_channel($$$$$$) {
 
     # if casting is enable, we need another api call
     # casting parsing start
-    if($opt_casting && ($genretext =~ /^(Film|Serie|Telefilm)$/i)) {
+    my @casting_cat = split(',', $opt_casting_cat);
+    if($opt_casting && grep ( lc($_) eq $genretext, @casting_cat)) {
       my $jsname_programme = '';
       my $id;
       if( $deeplink =~ /&id=([^&]+)/) {
