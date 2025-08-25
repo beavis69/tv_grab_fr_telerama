@@ -957,13 +957,13 @@ sub grab_day_channel($$$$$$) {
       if ($save_json) { $jsname_programme = mkjsonname("", { "id_programme" => $line->{'id'}}); }
       my $json_p;
       # try to use emissions cache
-      if(exists $emissions{$line->{id}} && $emissions_cache) {
+      if($id && exists $emissions{$id} && $emissions_cache) {
         #use cache
         $stats{cache_casting}++;
-        $json_p = $emissions{$line->{id}};
+        $json_p = $emissions{$id};
       } else {
         $json_p = get_page_json('casting', $url_programme, $jsname_programme);
-        $emissions{$line->{id}} = $json_p if $emissions_cache;
+        $emissions{$id} = $json_p if ($emissions_cache && $id);
       }
 
       my $content = $json_p->{'templates'}->{'raw_content'}->{'content'};
