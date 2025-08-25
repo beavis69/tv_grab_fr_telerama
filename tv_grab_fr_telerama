@@ -726,7 +726,7 @@ foreach my $chid (sort { $channels{$a}{order} <=> $channels{$b}{order} } keys %c
 
 # count needed api calls
 my $nb_chans = scalar(keys %channels);
-my $to_get = (int($nb_chans / $group_size) + ($nb_chans % $group_size > 0 ? 1 : 0)) * ($opt_days - $opt_offset);
+my $to_get = (int($nb_chans / $group_size) + ($nb_chans % $group_size > 0 ? 1 : 0)) * $opt_days;
 my $bar = new XMLTV::ProgressBar('getting listings', $to_get) if not $opt_quiet and not $show_url;
 
 Date_Init('SetDate=now,UTC');
