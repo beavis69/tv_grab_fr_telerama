@@ -457,7 +457,7 @@ my $CHANNEL_PROGRAMME_PAGE = '/tlr/v1/free-android-tablet/element';
 my $ROOT_URL  = 'https://apps.telerama.fr';
 
 my %stats;
-my $emissions_cache = 0;
+my $emissions_cache = 1;
 $stats{cache_casting} = 0;
 $stats{api}{total} = 0;
 
