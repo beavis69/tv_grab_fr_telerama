@@ -315,6 +315,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   * désactivation du cache %emissions qui ne sert à rien (< 1% d'efficacité).
   * correction bug bar progress quand --offset est utilisé
 
+3.11
+  * bug fix categorie/genretext pour un meilleur fonctionnement de --casting_cat
+
 =cut
 use XMLTV::Usage <<END
 $0: get French television listings in XMLTV format
@@ -339,7 +342,7 @@ END
 use warnings;
 use strict;
 use utf8;
-use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.10 - 2025/08/26 00:35:00 beavis69 Exp $ ';
+use XMLTV::Version '$Id: tv_grab_fr_telerama,v 3.11 - 2025/08/26 00:35:00 beavis69 Exp $ ';
 use XMLTV::Capabilities qw/baseline manualconfig/;
 use XMLTV::Description 'France (telerama)';
 use Getopt::Long;
@@ -890,10 +893,9 @@ sub grab_day_channel($$$$$$) {
     my $subgenre = lc($line->{'type'});
     # see https://github.com/beavis69/tv_grab_fr_telerama/issues/48
     if ($subgenre ne $genretext) {
-      push @{$prog{category}}, [ xmlencoding($subgenre), $LANG ];
-    } else {
-      push @{$prog{category}}, [ xmlencoding($genretext), $LANG ];
+      $genretext = $subgenre;
     }
+    push @{$prog{category}}, [ xmlencoding($genretext), $LANG ];
 
     my $deeplink = $line->{'deeplink'};
     my $episode;
