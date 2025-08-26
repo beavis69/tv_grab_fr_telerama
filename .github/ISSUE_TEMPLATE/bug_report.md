@@ -8,17 +8,21 @@ assignees: ''
 ---
 
 **version**
- - Version [e.g. v3.9]
+coller ici le résultat **complet** de la commande tv_grab_fr_telerama --version
+y compris la version du module XMLTV :
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**Décrivez le bug**
+Description clair et consise du bug rencontré 
 
 **To Reproduce**
-Steps to reproduce the behavior:
-command-line used
+Pas à pas détaillé pour reproduire le bug :
+* ligne de commande utilisée
+* chaine en cause
+* date du programme en cause
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+
+**Résultat attendu**
+Description claire et consise du résultat attendu.
 
 **json/xml**
-If applicable, add xmltv file results / json file (obtained with option --save_json)
+Pour les besoins du debug, si possible fournir le fichier xml incorrect obtenu, et le ou les fichiers json en cause avec (option --save_json)
