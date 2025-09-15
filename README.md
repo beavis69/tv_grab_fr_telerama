@@ -10,6 +10,15 @@ Le contenu n'étant pas généré par l'application mais récupéré sur l'api u
 Le site https://television.telerama.fr/ peut afficher des données differentes mais ce grabber n'utilise pas les données du site, inutile de nous contacter dans ce cas là.
 <b>Merci de vérifier avant d'ouvrir un ticket</b>
 
+## Synopsys manquant
+
+Le synopsis n'est plus présent par defaut dans l'api, il nécéssite un appel supllémentaire par emission.
+* Si vous voulez le synopsys : il faut utiliser l'option --casting
+* Par default cela récupère uniquement le casting/synopsys pour les catégories : film,telefilm
+
+* Si vous voulez le synopsys pour d'autres catégories, utilisez l'option --casting_cat en mettant la liste des caterogies souhaitées.
+
+
 ## Changelog
 
 <b>Depuis la version 3.7</b>
