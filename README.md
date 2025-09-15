@@ -12,11 +12,10 @@ Le site https://television.telerama.fr/ peut afficher des données differentes m
 
 ## Synopsys manquant
 
-Le synopsis n'est plus présent par defaut dans l'api, il nécéssite un appel supllémentaire par emission.
+Le synopsis n'est plus présent par defaut dans l'api, il nécéssite un appel supplémentaire pour chaque émission, et donc augmente la durée d'execution du grabber.
 * Si vous voulez le synopsys : il faut utiliser l'option --casting
 * Par default cela récupère uniquement le casting/synopsys pour les catégories : film,telefilm
-
-* Si vous voulez le synopsys pour d'autres catégories, utilisez l'option --casting_cat en mettant la liste des caterogies souhaitées.
+* Si vous voulez le synopsys pour d'autres catégories, utilisez l'option --casting_cat en mettant la liste des caterogies souhaitées séparées par des virgules.
 
 
 ## Changelog
